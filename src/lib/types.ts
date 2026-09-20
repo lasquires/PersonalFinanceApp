@@ -1,0 +1,11 @@
+export type Category = { id: string; name: string; group: 'flexible' | 'fixed' | 'business'; monthly_cents: number; rollover: boolean; start_month: string; color: string };
+export type Limit = { category_id: string; month: string; amount_cents: number };
+export type Split = { category_id: string; amount_cents: number };
+export type Transaction = { id: string; account_id: string | null; merchant: string; date: string; amount_cents: number; category_id: string | null; kind: 'expense' | 'transfer' | 'income'; excluded: boolean; pending: boolean; removed: boolean; note: string; splits: Split[]; source: 'manual' | 'csv' | 'plaid'; pending_transaction_id?: string | null; currency: string; needs_review: boolean };
+export type Account = { id: string; name: string; institution: string; member: string; mask: string; type: string; balance_cents: number | null; last_synced_at: string | null; sync_error: string | null; item_id: string | null };
+export type Task = { id: string; title: string; status: 'Suggested' | 'Active' | 'Waiting' | 'Done' | 'Dismissed'; priority: 'High' | 'Normal' | 'Low'; assignee: string; due_date: string | null; impact_cents: number; impact_type: 'monthly' | 'once'; notes: string; suggestion_key: string | null; category_id: string | null; event_id: string | null };
+export type FinancialEvent = { id: string; name: string; date: string | null; amount_cents: number; direction: 'outflow' | 'inflow'; certainty: 'Confirmed' | 'Estimated'; notes: string; affects_runway: boolean; recurring_monthly: boolean; milestone: boolean };
+export type ReservoirEntry = { id: string; date: string; amount_cents: number; note: string; kind: 'initial' | 'deposit' | 'withdrawal' | 'correction'; created_at: string };
+export type Settings = { id: number; floor_cents: number; annual_irregular_cents: number; annual_notes: string; timezone: string; forecast_months: number };
+export type Snapshot = { categories: Category[]; limits: Limit[]; transactions: Transaction[]; accounts: Account[]; tasks: Task[]; events: FinancialEvent[]; reservoir: ReservoirEntry[]; settings: Settings };
+export type BudgetRow = Category & { budget: number; carried: number; spent: number; pendingSpent: number; remaining: number };

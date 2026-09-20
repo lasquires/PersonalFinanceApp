@@ -1,0 +1,14 @@
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  testDir: './e2e',
+  timeout: 30_000,
+  fullyParallel: false,
+  use: {
+    baseURL: 'http://127.0.0.1:3017',
+    browserName: 'chromium',
+    channel: 'msedge',
+    trace: 'retain-on-failure',
+  },
+  reporter: 'line',
+});
