@@ -1,0 +1,25 @@
+.google {
+  width: 100%;
+  font-weight: 700;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  height: 1px;
+  background: var(--border);
+  flex: 1;
+}
+
+.divider span {
+  white-space: nowrap;
+}
