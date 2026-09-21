@@ -40,6 +40,7 @@ do $$ declare t text; begin
 end $$;
 revoke all on public.members from anon, authenticated;
 grant select on public.members to authenticated;
+grant select, insert, update on public.members to service_role;
 
 create function private.check_splits() returns trigger language plpgsql set search_path='' as $$
 declare s jsonb; total bigint:=0; n integer;
