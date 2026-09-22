@@ -11,4 +11,4 @@ export async function proxy(request: NextRequest) {
   response.headers.set('Cache-Control', 'private, no-store');
   return response;
 }
-export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|icons|sw.js|manifest.webmanifest|api/plaid/webhook).*)'] };
+export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|icons|sw.js|manifest.webmanifest|api/plaid/webhook|api/mcp|\.well-known/oauth-protected-resource).*)'] };
