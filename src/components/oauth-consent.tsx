@@ -1,0 +1,19 @@
+'use client';
+import { useEffect,useState } from 'react';
+import { ArrowRight,LockKeyhole,ShieldCheck } from 'lucide-react';
+import { browserDb } from '@/lib/supabase/client';
+import { googleSignInOptions } from '@/lib/auth';
+import { decideAuthorization,loadAuthorizationState,type AuthorizationState } from '@/lib/oauth-consent';
+
+export function OAuthConsent(){
+  const[state,setState]=useState<AuthorizationState>({kind:'loading'});const[busy,setBusy]=useState(false);const[error,setError]=useState('');
+  useEffect(()=>{if(!process.env.NEXT_PUBLIC_SUPABASE_URL||!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY){setState({kind:'error',message:'Authorization unavailable'});return;}const db=browserDb();const authorizationId=new URLSearchParams(window.location.search).get('authorization_id')??'';void loadAuthorizationState(authorizationId,window.location.href,{getUser:async()=>{const result=await db.auth.getUser();return result.data.user?{id:result.data.user.id}:null;},getMemberRole:async id=>{const result=await db.from('members').select('role').eq('id',id).single();return result.data?.role??null;},oauth:db.auth.oauth}).then(next=>{if(next.kind==='redirect')window.location.assign(next.url);else setState(next);}).catch(()=>setState({kind:'error',message:'Authorization unavailable'}));},[]);
+  const decide=async(decision:'approve'|'deny')=>{if(state.kind!=='ready')return;setBusy(true);setError('');try{window.location.assign(await decideAuthorization(decision,state.authorizationId,browserDb().auth.oauth));}catch{setError('The connection decision could not be completed. Please try again.');setBusy(false);}};
+  return <main className="auth-page"><div className="auth-brand"><img src="/icons/icon-192.png" width="48" height="48" alt=""/><span>Squires<span className="brand-sub">FAMILY FINANCE</span></span></div><section className="auth-content oauth-consent">
+    {state.kind==='loading'&&<><h1>Checking this request...</h1><p className="muted">Confirming who wants access.</p></>}
+    {state.kind==='signed-out'&&<><div className="eyebrow"><LockKeyhole size={16}/> PRIVATE CONNECTION</div><h1>Sign in to continue.</h1><p className="muted">Only a household administrator can connect ChatGPT.</p><button className="primary" onClick={()=>void browserDb().auth.signInWithOAuth(googleSignInOptions(state.returnTo))}>Continue with Google<ArrowRight size={18}/></button></>}
+    {state.kind==='forbidden'&&<><h1>Administrator access required.</h1><p className="muted">This account cannot authorize ChatGPT for the household.</p><a className="secondary" href="/">Return to the household</a></>}
+    {state.kind==='error'&&<><h1>Authorization unavailable.</h1><p className="muted">This request may be invalid or expired. Return to ChatGPT and try connecting again.</p><a className="secondary" href="/">Return to the household</a></>}
+    {state.kind==='ready'&&<><div className="eyebrow"><ShieldCheck size={16}/> ADMIN APPROVAL</div><h1>Connect {state.clientName}?</h1><p className="muted">This gives {state.clientName} permission to review household finances and, after confirmation, create tips and suggested tasks. It cannot move money or access bank credentials.</p><div className="consent-details"><strong>Requested access</strong><ul>{state.scopes.map(scope=><li key={scope}>{scope}</li>)}</ul>{state.clientUri&&<a href={state.clientUri} target="_blank" rel="noreferrer">Visit {state.clientName}</a>}</div>{error&&<p className="form-error" role="alert">{error}</p>}<div className="consent-actions"><button className="secondary" disabled={busy} onClick={()=>void decide('deny')}>Deny</button><button className="primary" disabled={busy} onClick={()=>void decide('approve')}>{busy?'Connecting...':'Approve connection'}<ArrowRight size={18}/></button></div></>}
+  </section><footer className="auth-footer">Private access for the Squires household.</footer></main>;
+}

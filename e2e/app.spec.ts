@@ -89,3 +89,11 @@ test('Household members settings expose admin invitation controls', async ({ pag
   await expect(page.getByRole('button',{name:'Send invitation'})).toBeEnabled();
   expect(errors).toEqual([]);
 });
+
+test('OAuth authorization page remains usable on a phone', async ({ page }) => {
+  await page.setViewportSize({ width:390, height:844 });
+  await page.goto('/authorize?authorization_id=test-request');
+  await expect(page.getByRole('heading', { name:/Connect ChatGPT|Authorization unavailable/ })).toBeVisible();
+  const sizes=await page.evaluate(()=>({width:document.documentElement.scrollWidth,viewport:window.innerWidth}));
+  expect(sizes.width).toBeLessThanOrEqual(sizes.viewport);
+});
