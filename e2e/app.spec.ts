@@ -62,6 +62,30 @@ test.describe('phone layout', () => {
     });
     expect(bounds.left).toBeGreaterThanOrEqual(0);
     expect(bounds.right).toBeLessThanOrEqual(bounds.width);
+    await page.getByRole('button', { name: 'Close dialog' }).click();
+    await page.getByRole('button', { name: 'Open navigation' }).click();
+    await page.getByRole('button', { name: /Luke.*Squires household/ }).click();
+    await expect(page.getByRole('heading', { name: 'Household members' })).toBeVisible();
+    await page.getByRole('button', { name: 'Invite member' }).click();
+    const inviteBounds = await page.getByRole('dialog').evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, width: window.innerWidth };
+    });
+    expect(inviteBounds.left).toBeGreaterThanOrEqual(0);
+    expect(inviteBounds.right).toBeLessThanOrEqual(inviteBounds.width);
+    const settingsSizes = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: window.innerWidth }));
+    expect(settingsSizes.width).toBeLessThanOrEqual(settingsSizes.viewport);
     expect(errors).toEqual([]);
   });
+});
+
+test('Household members settings expose admin invitation controls', async ({ page }) => {
+  const errors = await openPreview(page);
+  await page.getByRole('button', { name: /Luke.*Squires household/ }).click();
+  await expect(page.getByRole('heading', { name: 'Household members' })).toBeVisible();
+  await page.getByRole('button',{name:'Invite member'}).click();
+  await page.getByLabel('Email').fill('guest@example.com');
+  await expect(page.getByLabel('Access', { exact: true })).toHaveValue('viewer');
+  await expect(page.getByRole('button',{name:'Send invitation'})).toBeEnabled();
+  expect(errors).toEqual([]);
 });

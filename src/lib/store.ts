@@ -3,12 +3,12 @@ import { browserDb } from './supabase/client';
 import { defaults } from './defaults';
 import type { Snapshot } from './types';
 import { validateSplits } from './finance';
-const tables = { categories: 'categories', limits: 'monthly_limits', transactions: 'transactions', accounts: 'accounts', tasks: 'tasks', events: 'financial_events', reservoir: 'reservoir_entries' } as const;
+const tables = { categories: 'categories', limits: 'monthly_limits', transactions: 'transactions', accounts: 'accounts', tasks: 'tasks', events: 'financial_events', reservoir: 'reservoir_entries',members:'members',invitations:'household_invitations',tips:'tips' } as const;
 export async function readSnapshot(): Promise<Snapshot> {
   const db = browserDb(); const result = defaults();
   await Promise.all(Object.entries(tables).map(async ([key, table]) => {
     const rows: unknown[] = []; let page = 0;
-    while (true) { let query = db.from(table).select('*').order(table === 'monthly_limits' ? 'category_id' : 'id'); if (table === 'monthly_limits') query = query.order('month'); const { data, error } = await query.range(page * 1000, page * 1000 + 999); if (error) throw new Error('Could not load household data. Check your connection and database setup.'); rows.push(...data); if (data.length < 1000) break; page++; }
+    while (true) { let query = db.from(table).select('*').order(table === 'monthly_limits' ? 'category_id' : 'id'); if (table === 'monthly_limits') query = query.order('month'); const { data, error } = await query.range(page * 1000, page * 1000 + 999); if (error&&table==='household_invitations')break;if (error) throw new Error('Could not load household data. Check your connection and database setup.'); rows.push(...data); if (data.length < 1000) break; page++; }
     Object.assign(result, { [key]: rows });
   }));
   const preferred = ['luke','samantha','dates','gas','household','carwash','offering','medical','food','electricity','water','trash','internet','insurance','gym','chatgpt','pgsharp','shopify','epidemic'];
