@@ -10,7 +10,7 @@ async function database(beforeSecond?: (db: PGlite) => Promise<void>) {
     create role authenticated;
     create role service_role;
     create schema auth;
-    create table auth.users(id uuid primary key);
+    create table auth.users(id uuid primary key, email text);
     create function auth.uid() returns uuid language sql stable as
       $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
     create publication supabase_realtime;
@@ -29,7 +29,10 @@ const GUEST = '33333333-3333-3333-3333-333333333333';
 
 async function seededMembers(db: PGlite) {
   await db.exec(`
-    insert into auth.users(id) values ('${LUKE}'),('${SAMANTHA}'),('${GUEST}');
+    insert into auth.users(id,email) values
+      ('${LUKE}','luke@example.com'),
+      ('${SAMANTHA}','samantha@example.com'),
+      ('${GUEST}','guest@example.com');
     insert into public.members(id,name) values ('${LUKE}','Luke'),('${SAMANTHA}','Samantha');
   `);
 }

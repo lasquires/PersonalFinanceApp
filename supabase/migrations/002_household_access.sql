@@ -8,6 +8,7 @@ alter table public.members add constraint members_name_length check(length(trim(
 alter table public.members add column email text;
 alter table public.members add column role public.member_role not null default 'viewer';
 update public.members set role='admin' where name in ('Luke','Samantha');
+update public.members m set email=lower(u.email) from auth.users u where m.id=u.id and u.email is not null;
 create unique index members_email_unique on public.members(lower(email)) where email is not null;
 
 create function public.current_member_role() returns public.member_role
