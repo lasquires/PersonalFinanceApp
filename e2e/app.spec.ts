@@ -97,3 +97,18 @@ test('OAuth authorization page remains usable on a phone', async ({ page }) => {
   const sizes=await page.evaluate(()=>({width:document.documentElement.scrollWidth,viewport:window.innerWidth}));
   expect(sizes.width).toBeLessThanOrEqual(sizes.viewport);
 });
+
+test('Weekly tips appear on Home and can be dismissed', async ({ page }) => {
+  await openPreview(page);
+  await expect(page.getByRole('heading', { name:'Weekly tips' })).toBeVisible();
+  await expect(page.getByText('Protect the date budget')).toBeVisible();
+  await page.getByRole('button', { name:'Dismiss Protect the date budget' }).click();
+  await expect(page.getByText('Protect the date budget')).toBeHidden();
+});
+
+test('ChatGPT access explains the private connector', async ({ page }) => {
+  await openPreview(page);
+  await page.getByRole('button', { name:/Squires household/ }).click();
+  await expect(page.getByRole('heading', { name:'ChatGPT access' })).toBeVisible();
+  await expect(page.getByLabel('Private connector address')).toHaveValue('https://squires-family-finance.vercel.app/api/mcp');
+});

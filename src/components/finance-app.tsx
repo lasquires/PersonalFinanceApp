@@ -312,6 +312,7 @@ export function FinanceApp({
               {tab === "Home" && (
                 <Home
                   data={data}
+                  role={role}
                   month={month}
                   navigate={navigate}
                   save={save}
