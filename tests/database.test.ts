@@ -90,7 +90,7 @@ test('invitations are expiring single-use grants and tips respect write roles', 
   await db.query(`update public.members set role='member' where id=$1`,[GUEST]);
   await db.exec(`set role authenticated`);
   await db.query(`select public.set_tip_status((select id from public.tips limit 1),'dismissed')`);
-  assert.equal((await db.query(`select status from public.tips`)).rows[0].status, 'dismissed');
+  assert.equal((await db.query<{status:string}>(`select status from public.tips`)).rows[0].status, 'dismissed');
   await db.exec(`reset role`);
   await db.close();
 });
