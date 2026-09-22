@@ -10,10 +10,15 @@ A private, mobile-first budget and trust-runway app for Luke and Samantha.
 - Plan: auditable reservoir history, dated one-offs, recurring funding, 36-month runway, $5,000 floor
 - Tasks: status, priority, assignee, due date, estimated impact, deterministic suggestions
 - Accounts: Plaid Link, cursor-based transaction sync, signed webhooks, reconnect and sync state
-- Security: two-member allowlist, Supabase Auth, RLS, private Plaid tokens, audited household changes
+- Security: role-based household access, expiring invitations, Supabase Auth, RLS, private Plaid tokens, audited household and assistant changes
+- ChatGPT: private OAuth-protected MCP tools for weekly reviews, tips, and suggested tasks
 - PWA: installable app shell, phone navigation, dark mode, offline notice
 
 The app cannot move money, pay bills, trade, or initiate transfers.
+
+## ChatGPT connection
+
+Administrators can connect ChatGPT to `https://squires-family-finance.vercel.app/api/mcp`. The connector reads only bounded finance views and writes only tips or `Suggested` tasks. See [docs/chatgpt-connection.md](docs/chatgpt-connection.md) for connection, weekly scheduling, and revocation instructions.
 
 ## Local preview
 
