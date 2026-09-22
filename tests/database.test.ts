@@ -167,3 +167,21 @@ test('assistant views expose current budget, runway inputs, and sync health with
   assert.equal(Number(budget.rows[0].remaining_cents), 5000);
   await db.close();
 });
+
+test('assistant writes require admins, validate links, and record OAuth audit context', async () => {
+  const db = await database(seededMembers);
+  await db.query(`select set_config('request.jwt.claim.sub',$1,false)`, [LUKE]);
+  await db.exec(`set role authenticated`);
+  await db.query(`select public.assistant_create_tip($1,$2,$3)`, [JSON.stringify({title:'Weekly check',body:'Keep the date budget visible.',evidence:{remaining_cents:2400}}),'chatgpt','create_tip']);
+  await db.query(`select public.assistant_create_suggested_task($1,$2,$3)`, [JSON.stringify({title:'Review dates',category_id:'dates'}),'chatgpt','create_task']);
+  const audit = await db.query<{origin:string;oauth_client_id:string;tool_name:string}>(`select origin,oauth_client_id,tool_name from public.audit_log where origin='assistant' order by id`);
+  assert.deepEqual(audit.rows,[{origin:'assistant',oauth_client_id:'chatgpt',tool_name:'create_tip'},{origin:'assistant',oauth_client_id:'chatgpt',tool_name:'create_task'}]);
+  await assert.rejects(db.query(`select public.assistant_create_suggested_task($1,$2,$3)`,[JSON.stringify({title:'Bad link',category_id:'missing'}),'chatgpt','create_task']),/Unknown category/);
+  await db.exec(`reset role`);
+  await db.query(`insert into public.members(id,name,email,role) values($1,'Guest','guest@example.com','viewer')`,[GUEST]);
+  await db.query(`select set_config('request.jwt.claim.sub',$1,false)`,[GUEST]);
+  await db.exec(`set role authenticated`);
+  await assert.rejects(db.query(`select public.assistant_create_tip($1,$2,$3)`,[JSON.stringify({title:'Nope',body:'Nope',evidence:{}}),'chatgpt','create_tip']),/Administrator access required/);
+  await db.exec(`reset role`);
+  await db.close();
+});

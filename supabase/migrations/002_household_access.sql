@@ -101,6 +101,52 @@ grant select on public.tips to authenticated;
 grant select,insert,update on public.tips to service_role;
 create trigger tips_audit after insert or update or delete on public.tips for each row execute function private.audit_change();
 
+alter table public.audit_log add column oauth_client_id text, add column tool_name text;
+create or replace function private.audit_change() returns trigger language plpgsql security definer set search_path='' as $$
+begin
+ insert into public.audit_log(actor,origin,table_name,action,before_data,after_data,oauth_client_id,tool_name)
+ values(auth.uid(),coalesce(nullif(current_setting('app.origin',true),''),'member'),TG_TABLE_NAME,TG_OP,
+   case when TG_OP<>'INSERT' then to_jsonb(old) end,case when TG_OP<>'DELETE' then to_jsonb(new) end,
+   nullif(current_setting('app.oauth_client_id',true),''),nullif(current_setting('app.tool_name',true),''));
+ return coalesce(new,old);
+end $$;
+
+create function public.assistant_create_tip(payload jsonb, oauth_client_id text, tool_name text) returns public.tips
+language plpgsql security definer set search_path='' as $$
+declare created public.tips;
+begin
+  if not public.is_admin() then raise exception 'Administrator access required' using errcode='42501'; end if;
+  if nullif(trim(oauth_client_id),'') is null or nullif(trim(tool_name),'') is null then raise exception 'Assistant audit context required'; end if;
+  perform set_config('app.origin','assistant',true);
+  perform set_config('app.oauth_client_id',left(oauth_client_id,200),true);
+  perform set_config('app.tool_name',left(tool_name,100),true);
+  insert into public.tips(title,body,evidence,expires_at,created_by,origin)
+  values(payload->>'title',payload->>'body',coalesce(payload->'evidence','{}'::jsonb),nullif(payload->>'expires_at','')::date,auth.uid(),'assistant')
+  returning * into created;
+  return created;
+end $$;
+revoke all on function public.assistant_create_tip(jsonb,text,text) from public,anon;
+grant execute on function public.assistant_create_tip(jsonb,text,text) to authenticated;
+
+create function public.assistant_create_suggested_task(payload jsonb, oauth_client_id text, tool_name text) returns public.tasks
+language plpgsql security definer set search_path='' as $$
+declare created public.tasks; category text:=nullif(payload->>'category_id',''); event text:=nullif(payload->>'event_id','');
+begin
+  if not public.is_admin() then raise exception 'Administrator access required' using errcode='42501'; end if;
+  if nullif(trim(oauth_client_id),'') is null or nullif(trim(tool_name),'') is null then raise exception 'Assistant audit context required'; end if;
+  if category is not null and not exists(select 1 from public.categories where id=category) then raise exception 'Unknown category'; end if;
+  if event is not null and not exists(select 1 from public.financial_events where id=event) then raise exception 'Unknown event'; end if;
+  perform set_config('app.origin','assistant',true);
+  perform set_config('app.oauth_client_id',left(oauth_client_id,200),true);
+  perform set_config('app.tool_name',left(tool_name,100),true);
+  insert into public.tasks(title,status,priority,assignee,due_date,impact_cents,impact_type,notes,category_id,event_id)
+  values(payload->>'title','Suggested',coalesce(payload->>'priority','Normal'),coalesce(payload->>'assignee','Together'),nullif(payload->>'due_date','')::date,coalesce((payload->>'impact_cents')::bigint,0),coalesce(payload->>'impact_type','once'),coalesce(payload->>'notes',''),category,event)
+  returning * into created;
+  return created;
+end $$;
+revoke all on function public.assistant_create_suggested_task(jsonb,text,text) from public,anon;
+grant execute on function public.assistant_create_suggested_task(jsonb,text,text) to authenticated;
+
 create function public.set_tip_status(tip_id uuid, next_status text) returns void
 language plpgsql security definer set search_path='' as $$
 begin
