@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 
-async function database() {
+async function database(beforeSecond?: (db: PGlite) => Promise<void>) {
   const db = new PGlite();
   await db.exec(`
     create role anon;
@@ -17,8 +17,60 @@ async function database() {
   `);
   const migration = await readFile(new URL('../supabase/migrations/001_household.sql', import.meta.url), 'utf8');
   await db.exec(migration);
+  await beforeSecond?.(db);
+  const second = await readFile(new URL('../supabase/migrations/002_household_access.sql', import.meta.url), 'utf8').catch(() => '');
+  if (second) await db.exec(second);
   return db;
 }
+
+const LUKE = '11111111-1111-1111-1111-111111111111';
+const SAMANTHA = '22222222-2222-2222-2222-222222222222';
+const GUEST = '33333333-3333-3333-3333-333333333333';
+
+async function seededMembers(db: PGlite) {
+  await db.exec(`
+    insert into auth.users(id) values ('${LUKE}'),('${SAMANTHA}'),('${GUEST}');
+    insert into public.members(id,name) values ('${LUKE}','Luke'),('${SAMANTHA}','Samantha');
+  `);
+}
+
+test('roles preserve both household admins and enforce viewer/member boundaries', async () => {
+  const db = await database(seededMembers);
+  const members = await db.query<{name:string;role:string}>(`select name,role from public.members order by name`);
+  assert.deepEqual(members.rows, [{ name:'Luke', role:'admin' }, { name:'Samantha', role:'admin' }]);
+
+  await db.query(`insert into public.members(id,name,email,role) values($1,'Guest','guest@example.com','viewer')`, [GUEST]);
+  await db.query(`select set_config('request.jwt.claim.sub',$1,false)`, [GUEST]);
+  await db.exec(`set role authenticated`);
+  const visible = await db.query(`select category_id from public.assistant_monthly_budget limit 1`);
+  assert.equal(visible.rows.length, 1);
+  await assert.rejects(
+    db.query(`select public.household_action('task',$1,'member')`, [JSON.stringify({ title:'Nope', status:'Active', priority:'Normal', assignee:'Together', impact_cents:0, impact_type:'once', notes:'' })]),
+    /Household write access required/,
+  );
+
+  await db.exec(`reset role`);
+  await db.query(`update public.members set role='member' where id=$1`, [GUEST]);
+  await db.exec(`set role authenticated`);
+  await db.query(`select public.household_action('task',$1,'member')`, [JSON.stringify({ title:'Allowed', status:'Active', priority:'Normal', assignee:'Together', impact_cents:0, impact_type:'once', notes:'' })]);
+  await assert.rejects(db.query(`update public.members set role='admin' where id=$1`, [GUEST]));
+  await db.exec(`reset role`);
+  await db.close();
+});
+
+test('database never permits removing or demoting the final admin', async () => {
+  const db = await database(seededMembers);
+  await db.query(`delete from public.members where id=$1`, [SAMANTHA]);
+  await assert.rejects(
+    db.query(`update public.members set role='viewer' where id=$1`, [LUKE]),
+    /Household must retain an admin/,
+  );
+  await assert.rejects(
+    db.query(`delete from public.members where id=$1`, [LUKE]),
+    /Household must retain an admin/,
+  );
+  await db.close();
+});
 
 test('migration protects Plaid tokens and defines RLS for every exposed table', async () => {
   const db = await database();
