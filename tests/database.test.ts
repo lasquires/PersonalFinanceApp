@@ -72,6 +72,38 @@ test('database never permits removing or demoting the final admin', async () => 
   await db.close();
 });
 
+test('invitations are expiring single-use grants and tips respect write roles', async () => {
+  const db = await database(seededMembers);
+  await db.query(`insert into public.household_invitations(email,role,token_hash,invited_by,expires_at) values('guest@example.com','viewer',$1,$2,now()+interval '1 day')`, ['a'.repeat(64),LUKE]);
+  const accepted = await db.query<{server_accept_invitation:boolean}>(`select public.server_accept_invitation($1,$2,$3)`, [GUEST,' Guest@Example.com ','a'.repeat(64)]);
+  assert.equal(accepted.rows[0].server_accept_invitation, true);
+  const replay = await db.query<{server_accept_invitation:boolean}>(`select public.server_accept_invitation($1,$2,$3)`, [GUEST,'guest@example.com','a'.repeat(64)]);
+  assert.equal(replay.rows[0].server_accept_invitation, false);
+  assert.deepEqual((await db.query(`select email,role from public.members where id=$1`,[GUEST])).rows, [{email:'guest@example.com',role:'viewer'}]);
+
+  await db.query(`insert into public.tips(title,body,created_by) values('Keep going','Small steps help',$1)`, [LUKE]);
+  await db.query(`select set_config('request.jwt.claim.sub',$1,false)`, [GUEST]);
+  await db.exec(`set role authenticated`);
+  assert.equal((await db.query(`select title from public.tips`)).rows.length, 1);
+  await assert.rejects(db.query(`select public.set_tip_status((select id from public.tips limit 1),'dismissed')`), /Household write access required/);
+  await db.exec(`reset role`);
+  await db.query(`update public.members set role='member' where id=$1`,[GUEST]);
+  await db.exec(`set role authenticated`);
+  await db.query(`select public.set_tip_status((select id from public.tips limit 1),'dismissed')`);
+  assert.equal((await db.query(`select status from public.tips`)).rows[0].status, 'dismissed');
+  await db.exec(`reset role`);
+  await db.close();
+});
+
+test('expired and revoked invitations cannot grant membership', async () => {
+  const db = await database(seededMembers);
+  await db.query(`insert into public.household_invitations(email,role,status,token_hash,invited_by,expires_at) values('guest@example.com','viewer','revoked',$1,$2,now()+interval '1 day'),('late@example.com','member','pending',$3,$2,now()-interval '1 second')`, ['b'.repeat(64),LUKE,'c'.repeat(64)]);
+  assert.equal((await db.query<{server_accept_invitation:boolean}>(`select public.server_accept_invitation($1,'guest@example.com',$2)`,[GUEST,'b'.repeat(64)])).rows[0].server_accept_invitation,false);
+  assert.equal((await db.query<{server_accept_invitation:boolean}>(`select public.server_accept_invitation($1,'late@example.com',$2)`,[GUEST,'c'.repeat(64)])).rows[0].server_accept_invitation,false);
+  assert.equal((await db.query(`select * from public.members where id=$1`,[GUEST])).rows.length,0);
+  await db.close();
+});
+
 test('migration protects Plaid tokens and defines RLS for every exposed table', async () => {
   const db = await database();
   const tokenTable = await db.query<{ table_schema: string }>(`
@@ -83,7 +115,7 @@ test('migration protects Plaid tokens and defines RLS for every exposed table', 
     where table_schema='public' and column_name in ('access_token','secret','service_role_key')
   `);
   assert.equal(publicTokenColumns.rows.length, 0);
-  const exposed = ['members','categories','monthly_limits','accounts','transactions','tasks','financial_events','reservoir_entries','settings','audit_log'];
+  const exposed = ['members','categories','monthly_limits','accounts','transactions','tasks','financial_events','reservoir_entries','settings','audit_log','household_invitations','tips'];
   const rls = await db.query<{ relname: string; relrowsecurity: boolean }>(`
     select relname, relrowsecurity from pg_class where relname = any($1)
   `, [exposed]);
