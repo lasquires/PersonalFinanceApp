@@ -24,7 +24,7 @@ export function Home({
   data: Snapshot;
   role: MemberRole;
   month: string;
-  navigate: (tab: string) => void;
+  navigate: (tab: string, categoryId?: string) => void;
   save: Save;
   onError: (error: string) => void;
 }) {
@@ -101,7 +101,7 @@ export function Home({
               <CategoryBar
                 key={row.id}
                 row={row}
-                onClick={() => navigate("Budget")}
+                onClick={() => navigate("Transactions", row.id)}
               />
             ))}
           </div>

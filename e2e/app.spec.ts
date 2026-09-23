@@ -18,9 +18,11 @@ test('desktop preview supports the core household workflow', async ({ page }) =>
 
   await page.getByRole('button', { name: 'Transactions' }).first().click();
   await page.getByRole('button', { name: 'Add', exact: true }).click();
-  await page.getByLabel('Merchant').fill('Target');
+  await page.getByLabel('Merchant', { exact: true }).fill('Target');
   await page.getByLabel('Amount ($; negative for refund)').fill('42.75');
-  await page.getByLabel('Category').selectOption('household');
+  await page.locator('select[name="category"]').selectOption('household');
+  await expect(page.getByLabel('Remember category for future matches')).toBeVisible();
+  await page.getByLabel('Remember category for future matches').check();
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.getByRole('button', { name: /Target.*Household & Kids.*\$42\.75/ })).toBeVisible();
 
@@ -111,4 +113,11 @@ test('ChatGPT access explains the private connector', async ({ page }) => {
   await page.getByRole('button', { name:/Squires household/ }).click();
   await expect(page.getByRole('heading', { name:'ChatGPT access' })).toBeVisible();
   await expect(page.getByLabel('Private connector address')).toHaveValue('https://squires-family-finance.vercel.app/api/mcp');
+});
+
+test('home category opens matching transactions', async ({ page }) => {
+  await openPreview(page);
+  await page.getByRole('button', { name: /Household & Kids/ }).click();
+  await expect(page.getByRole('combobox', { name: 'Filter transactions' })).toHaveValue('household');
+  await expect(page.getByRole('heading', { name: 'Every little thing' })).toBeVisible();
 });

@@ -48,6 +48,7 @@ export function FinanceApp({
   const [name, setName] = useState("Household");
   const [role, setRole] = useState<MemberRole>("viewer");
   const [tab, setTab] = useState("Home");
+  const [transactionFilter, setTransactionFilter] = useState("all");
   const [month, setMonth] = useState(monthOf(today()));
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -153,7 +154,8 @@ export function FinanceApp({
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(""), 2500);
   };
-  const navigate = (value: string) => {
+  const navigate = (value: string, categoryId?: string) => {
+    if (value === "Transactions") setTransactionFilter(categoryId ?? "all");
     setTab(value);
     setMobile(false);
     window.scrollTo({ top: 0 });
@@ -323,7 +325,7 @@ export function FinanceApp({
                 <Budget data={data} month={month} save={save} />
               )}{" "}
               {tab === "Transactions" && (
-                <Transactions data={data} save={save} />
+                <Transactions data={data} save={save} initialFilter={transactionFilter} />
               )}{" "}
               {tab === "Tasks" && <Tasks data={data} save={save} />}{" "}
               {tab === "Plan" && <Plan data={data} save={save} />}{" "}

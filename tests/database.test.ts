@@ -20,6 +20,8 @@ async function database(beforeSecond?: (db: PGlite) => Promise<void>) {
   await beforeSecond?.(db);
   const second = await readFile(new URL('../supabase/migrations/002_household_access.sql', import.meta.url), 'utf8').catch(() => '');
   if (second) await db.exec(second);
+  const third = await readFile(new URL('../supabase/migrations/003_merchant_category_rules.sql', import.meta.url), 'utf8').catch(() => '');
+  if (third) await db.exec(third);
   return db;
 }
 
@@ -152,6 +154,29 @@ test('cursor compare-and-swap rejects a stale concurrent sync', async () => {
   const stale = await db.query<{ server_apply_sync:boolean }>(`select public.server_apply_sync($1,$2,$3,$4,$5,$6,$7)`, ['item-1','','cursor-stale','[]','[]','[]',JSON.stringify(account)]);
   assert.equal(first.rows[0].server_apply_sync, true);
   assert.equal(stale.rows[0].server_apply_sync, false);
+  await db.close();
+});
+
+test('remembered merchant categories apply to future Plaid transactions', async () => {
+  const db = await database(seededMembers);
+  await db.query(`select set_config('request.jwt.claim.sub',$1,false)`, [LUKE]);
+  await db.exec(`set role authenticated`);
+  await db.query(`select public.household_action('transaction',$1,'member')`, [JSON.stringify({
+    id:'manual-salvation', merchant:'The Salvation Army', date:'2026-09-01', amount_cents:1375,
+    category_id:'household', kind:'expense', excluded:false, note:'', splits:[], source:'manual',
+    remember_category:true,
+  })]);
+  await db.exec(`reset role`);
+
+  const account = [{ account_id:'account-1', name:'Checking', mask:'1234', type:'depository', balances:{ current:1000 } }];
+  await db.query(`select public.server_save_item($1,$2,$3,$4,$5)`, ['item-1','secret-token','Test Bank','Luke',JSON.stringify(account)]);
+  const added = [{ id:'plaid-salvation', account_id:'account-1', merchant:'  THE   SALVATION ARMY  ', date:'2026-09-22', amount_cents:2500, category_id:null, kind:'expense', pending:false, pending_transaction_id:null, currency:'USD', needs_review:true }];
+  await db.query(`select public.server_apply_sync($1,$2,$3,$4,$5,$6,$7)`, ['item-1','','cursor-1',JSON.stringify(added),'[]','[]',JSON.stringify(account)]);
+
+  const saved = await db.query<{category_id:string;needs_review:boolean}>(`select category_id,needs_review from public.transactions where id='plaid-salvation'`);
+  assert.deepEqual(saved.rows, [{category_id:'household',needs_review:false}]);
+  const protection = await db.query<{relrowsecurity:boolean}>(`select relrowsecurity from pg_class where relname='merchant_category_rules'`);
+  assert.deepEqual(protection.rows, [{relrowsecurity:true}]);
   await db.close();
 });
 
