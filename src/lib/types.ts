@@ -11,5 +11,6 @@ export type MemberRole = 'admin'|'member'|'viewer';
 export type Member = { id:string;name:string;email:string|null;role:MemberRole };
 export type Invitation = { id:string;email:string;role:MemberRole;status:'pending'|'accepted'|'revoked'|'error';expires_at:string };
 export type Tip = { id:string;title:string;body:string;evidence:Record<string,unknown>;status:'active'|'archived'|'dismissed';expires_at:string|null;origin:'member'|'assistant';created_at:string };
-export type Snapshot = { categories: Category[]; limits: Limit[]; transactions: Transaction[]; accounts: Account[]; tasks: Task[]; events: FinancialEvent[]; reservoir: ReservoirEntry[]; members:Member[]; invitations:Invitation[]; tips:Tip[]; settings: Settings };
+export type SnapBalance = { id:string;benefit_month:string;balance_cents:number;observed_at:string;source:string };
+export type Snapshot = { categories: Category[]; limits: Limit[]; transactions: Transaction[]; accounts: Account[]; tasks: Task[]; events: FinancialEvent[]; reservoir: ReservoirEntry[]; snap_balances:SnapBalance[]; members:Member[]; invitations:Invitation[]; tips:Tip[]; settings: Settings };
 export type BudgetRow = Category & { budget: number; carried: number; spent: number; pendingSpent: number; remaining: number };

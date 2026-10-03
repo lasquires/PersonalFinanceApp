@@ -6,6 +6,7 @@ import {
   Landmark,
   Wallet,
   CheckCheck,
+  WalletCards,
 } from "lucide-react";
 import { budgetRows, forecast, money, today } from "@/lib/finance";
 import type { MemberRole, Snapshot } from "@/lib/types";
@@ -54,6 +55,13 @@ export function Home({
           t.kind === "expense" &&
           !t.excluded)),
   ).length;
+  const snapBalance = [...data.snap_balances].sort(
+    (a, b) => b.observed_at.localeCompare(a.observed_at),
+  )[0];
+  const snapIsFresh = snapBalance
+    ? Date.now() - new Date(snapBalance.observed_at).getTime() <=
+      36 * 60 * 60 * 1000
+    : false;
   return (
     <>
       <div className="home-greeting">
@@ -193,6 +201,20 @@ export function Home({
               />
             ))}
             {!tasks.length && <Empty title="Nothing pressing" />}
+          </section>
+          <section className="snap-panel">
+            <div className="section-heading">
+              <h2><WalletCards size={18}/>SNAP card balance</h2>
+              {snapBalance && <span className={snapIsFresh ? "badge" : "badge amber"}>{snapIsFresh ? "UP TO DATE" : "NEEDS UPDATE"}</span>}
+            </div>
+            {snapBalance ? <>
+              <div className="reservoir-amount">{money(snapBalance.balance_cents, true)}</div>
+              <div className="row-between small"><span>Benefit month</span><strong>{new Date(snapBalance.benefit_month.slice(0, 7) + "-01T12:00:00Z").toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })}</strong></div>
+              <p className="small muted" role="status">{snapIsFresh ? "Updated " : "Last checked "}{new Date(snapBalance.observed_at).toLocaleString()}</p>
+            </> : <>
+              <p className="small muted">Connect Muse in Settings to show your available food benefit balance here.</p>
+              <button className="text-btn" onClick={() => navigate("Settings")}>Connect Muse<ArrowRight size={16}/></button>
+            </>}
           </section>
         </div>
       </div>

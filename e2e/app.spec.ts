@@ -117,7 +117,29 @@ test('ChatGPT access explains the private connector', async ({ page }) => {
 
 test('home category opens matching transactions', async ({ page }) => {
   await openPreview(page);
-  await page.getByRole('button', { name: /Household & Kids/ }).click();
+  await page.getByRole('button', { name: 'Transactions' }).first().click();
+  await page.getByRole('button', { name:'Add', exact:true }).click();
+  const currentMonth = await page.getByLabel('Date', { exact:true }).inputValue();
+  await page.getByRole('button', { name:'Close dialog' }).click();
+  const current = new Date(`${currentMonth}T12:00:00`);
+  const previous = new Date(current.getFullYear(), current.getMonth() - 1, current.getDate());
+  const previousMonth = `${previous.getFullYear()}-${String(previous.getMonth() + 1).padStart(2, '0')}-${String(previous.getDate()).padStart(2, '0')}`;
+  for (const transaction of [
+    { merchant:'Current month purchase', date:currentMonth },
+    { merchant:'Previous month purchase', date:previousMonth },
+  ]) {
+    await page.getByRole('button', { name:'Add', exact:true }).click();
+    await page.getByLabel('Merchant', { exact:true }).fill(transaction.merchant);
+    await page.getByLabel('Date', { exact:true }).fill(transaction.date);
+    await page.getByLabel('Amount ($; negative for refund)').fill('10');
+    await page.locator('select[name="category"]').selectOption('household');
+    await page.getByRole('button', { name:'Save changes' }).click();
+    await expect(page.getByRole('dialog')).toBeHidden();
+  }
+  await page.getByRole('button', { name:'Home' }).first().click();
+  await page.locator('.category-row').filter({ hasText:'Household & Kids' }).click();
   await expect(page.getByRole('combobox', { name: 'Filter transactions' })).toHaveValue('household');
   await expect(page.getByRole('heading', { name: 'Every little thing' })).toBeVisible();
+  await expect(page.getByText('Current month purchase')).toBeVisible();
+  await expect(page.getByText('Previous month purchase')).toBeHidden();
 });

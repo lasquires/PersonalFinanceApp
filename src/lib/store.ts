@@ -11,6 +11,7 @@ const tables = {
   tasks: "tasks",
   events: "financial_events",
   reservoir: "reservoir_entries",
+  snap_balances: "snap_balance_snapshots",
   members: "members",
   invitations: "household_invitations",
   tips: "tips",
@@ -32,7 +33,7 @@ export async function readSnapshot(): Promise<Snapshot> {
           page * 1000,
           page * 1000 + 999,
         );
-        if (error && table === "household_invitations") break;
+        if (error && (table === "household_invitations" || (table === "snap_balance_snapshots" && ["42P01", "PGRST205"].includes(error.code ?? "")))) break;
         if (error)
           throw new Error(
             "Could not load household data. Check your connection and database setup.",

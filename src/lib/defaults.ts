@@ -111,6 +111,7 @@ export function defaults(): Snapshot {
     })),
     events: [],
     reservoir: [],
+    snap_balances: [],
     settings: {
       id: 1,
       floor_cents: 500000,

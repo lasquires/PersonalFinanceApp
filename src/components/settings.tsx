@@ -8,6 +8,8 @@ import {
   ShieldCheck,
   Download,
   Bot,
+  KeyRound,
+  Copy,
 } from "lucide-react";
 import type { Snapshot } from "@/lib/types";
 import { PlaidConnect, api } from "./plaid-connect";
@@ -33,6 +35,9 @@ export function Settings({
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [snapToken, setSnapToken] = useState("");
+  const [snapBusy, setSnapBusy] = useState(false);
+  const [snapMessage, setSnapMessage] = useState("");
   const unique = [
     ...new Set(data.accounts.map((a) => a.item_id).filter(Boolean)),
   ];
@@ -68,6 +73,22 @@ export function Settings({
         <p className="muted">Connect once, then a scheduled ChatGPT Workspace Agent can review the week automatically. ChatGPT can read the household plan and create tips or suggested tasks, but it cannot move money or access bank credentials. ChatGPT may still require confirmation according to your workspace policy.</p>
         <label className="field"><span>Private connector address</span><input readOnly value="https://squires-family-finance.vercel.app/api/mcp" onFocus={event=>event.currentTarget.select()}/></label>
       </section>
+      {role === "admin" && !preview && <section className="settings-section">
+        <div className="section-heading">
+          <h3><KeyRound size={17}/>Muse SNAP updates</h3>
+          <button className="secondary" disabled={snapBusy} onClick={async()=>{
+            setSnapBusy(true);setError("");setSnapMessage("");setSnapToken("");
+            try{const response=await fetch("/api/benefits/snap-token",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});const result=await response.json();if(!response.ok)throw new Error(result.error??"The key could not be created.");setSnapToken(result.token);}
+            catch(e){setError((e as Error).message);}
+            finally{setSnapBusy(false);}
+          }}><KeyRound size={15}/>{snapBusy?"Creating key":"Create or replace key"}</button>
+        </div>
+        <p className="muted small">Muse can send only the current SNAP card balance. The key is shown once; replacing it immediately disables the previous key.</p>
+        {snapToken&&<div className="snap-key-result"><label className="field"><span>New Muse key</span><input readOnly value={snapToken} onFocus={event=>event.currentTarget.select()}/></label><button className="secondary" onClick={async()=>{await navigator.clipboard.writeText(snapToken);setSnapMessage("Copied. Add it to Muse's secure secrets as FINANCE_SNAP_TOKEN.");}}><Copy size={15}/>Copy key</button></div>}
+        {snapMessage&&<p className="small" role="status">{snapMessage}</p>}
+        <p className="small muted">Muse endpoint: <code>https://squires-family-finance.vercel.app/api/benefits/snap</code></p>
+        {error&&<p className="form-error" role="alert">{error}</p>}
+      </section>}
       <section className="settings-section">
         <div className="section-heading">
           <h3>Connected accounts</h3>
