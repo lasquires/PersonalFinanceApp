@@ -26,6 +26,7 @@ import { defaults } from "@/lib/defaults";
 import { previewAction, readSnapshot, writeAction } from "@/lib/store";
 import { addMonths, monthLabel, monthOf, today } from "@/lib/finance";
 import type { MemberRole, Snapshot } from "@/lib/types";
+import { useDashboardPreferences } from "@/lib/use-dashboard-preferences";
 const navigation = [
   { name: "Home", icon: HomeIcon },
   { name: "Budget", icon: Wallet },
@@ -49,6 +50,9 @@ export function FinanceApp({
   const [role, setRole] = useState<MemberRole>("viewer");
   const [tab, setTab] = useState("Home");
   const [transactionFilter, setTransactionFilter] = useState("all");
+  const [transactionAccount, setTransactionAccount] = useState("all");
+  const [userId, setUserId] = useState<string | null>(null);
+  const dashboard = useDashboardPreferences(userId, preview);
   const [month, setMonth] = useState(monthOf(today()));
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -91,6 +95,7 @@ export function FinanceApp({
       const { data: user } = await db.auth.getUser();
       if (!active || own !== sequence) return;
       if (!user.user) {
+        setUserId(null);
         setAuth("out");
         setData(null);
         dataRef.current = null;
@@ -109,6 +114,7 @@ export function FinanceApp({
         return;
       }
       setName(member.data.name);
+      setUserId(user.user.id);
       setRole(member.data.role as MemberRole);
       setAuth("in");
       await refresh();
@@ -154,8 +160,11 @@ export function FinanceApp({
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(""), 2500);
   };
-  const navigate = (value: string, categoryId?: string) => {
-    if (value === "Transactions") setTransactionFilter(categoryId ?? "all");
+  const navigate = (value: string, categoryId?: string, accountId?: string) => {
+    if (value === "Transactions") {
+      setTransactionFilter(categoryId ?? "all");
+      setTransactionAccount(accountId ?? "all");
+    }
     setTab(value);
     setMobile(false);
     window.scrollTo({ top: 0 });
@@ -165,6 +174,7 @@ export function FinanceApp({
     dataRef.current = null;
     setData(null);
     setPreview(false);
+    setUserId(null);
     setAuth("out");
     setError("");
     if (configured) await browserDb().auth.signOut();
@@ -266,9 +276,7 @@ export function FinanceApp({
           >
             <Menu size={20} />
           </button>
-          <span className="breadcrumb">
-            Our household <span>/</span> <strong>{tab}</strong>
-          </span>
+          <span className="breadcrumb"><strong>{tab === 'Home' ? 'Squires' : tab}</strong></span>
           <div className="month-control">
             <button
               className="icon-btn"
@@ -319,13 +327,18 @@ export function FinanceApp({
                   navigate={navigate}
                   save={save}
                   onError={setError}
+                  preferences={dashboard.preferences}
+                  savePreferences={dashboard.savePreferences}
+                  preferencesLoading={dashboard.loading}
+                  preferencesError={dashboard.error}
+                  preview={preview}
                 />
               )}{" "}
               {tab === "Budget" && (
-                <Budget data={data} month={month} save={save} />
+                <Budget data={data} month={month} save={save} navigate={navigate} />
               )}{" "}
               {tab === "Transactions" && (
-                <Transactions data={data} save={save} month={month} initialFilter={transactionFilter} />
+                <Transactions data={data} save={save} month={month} initialFilter={transactionFilter} initialAccount={transactionAccount} />
               )}{" "}
               {tab === "Tasks" && <Tasks data={data} save={save} />}{" "}
               {tab === "Plan" && <Plan data={data} save={save} />}{" "}

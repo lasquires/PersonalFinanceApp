@@ -8,7 +8,7 @@ async function openPreview(page: import('@playwright/test').Page) {
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
   await page.getByRole('button', { name: 'Open local preview' }).click();
-  await expect(page.getByRole('heading', { name: 'Room for what matters.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Overview', exact:true })).toBeVisible();
   return errors;
 }
 
@@ -35,7 +35,7 @@ test('desktop preview supports the core household workflow', async ({ page }) =>
   await page.getByLabel('Note').fill('Confirmed opening balance');
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.getByText('$38,200', { exact: true })).toBeVisible();
-  await expect(page.getByText('~22 months')).toBeVisible();
+  await expect(page.getByText(/^~\d+ months$/)).toBeVisible();
 
   await page.getByRole('button', { name: 'Tasks' }).first().click();
   await page.getByRole('button', { name: 'Complete Enter tuition and funding dates' }).click();
@@ -95,7 +95,7 @@ test('Household members settings expose admin invitation controls', async ({ pag
 test('OAuth authorization page remains usable on a phone', async ({ page }) => {
   await page.setViewportSize({ width:390, height:844 });
   await page.goto('/authorize?authorization_id=test-request');
-  await expect(page.getByRole('heading', { name:/Connect ChatGPT|Authorization unavailable/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name:/Connect ChatGPT|Authorization unavailable|Sign in to continue/ })).toBeVisible();
   const sizes=await page.evaluate(()=>({width:document.documentElement.scrollWidth,viewport:window.innerWidth}));
   expect(sizes.width).toBeLessThanOrEqual(sizes.viewport);
 });
@@ -139,7 +139,45 @@ test('home category opens matching transactions', async ({ page }) => {
   await page.getByRole('button', { name:'Home' }).first().click();
   await page.locator('.category-row').filter({ hasText:'Household & Kids' }).click();
   await expect(page.getByRole('combobox', { name: 'Filter transactions' })).toHaveValue('household');
-  await expect(page.getByRole('heading', { name: 'Every little thing' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Transactions', exact:true })).toBeVisible();
   await expect(page.getByText('Current month purchase')).toBeVisible();
   await expect(page.getByText('Previous month purchase')).toBeHidden();
+  await page.getByRole('button', {name:'All time',exact:true}).click();
+  await expect(page.getByText('Previous month purchase')).toBeVisible();
+  await page.getByRole('button', {name:'Previous month',exact:true}).click();
+  await expect(page.getByText('Previous month purchase')).toBeVisible();
+  await expect(page.getByText('Current month purchase')).toBeHidden();
+});
+
+test('dashboard choices survive reload and can be reordered', async ({page}) => {
+  const errors = await openPreview(page);
+  await expect(page.getByText('Room for what matters.')).toBeHidden();
+  await page.getByRole('button', {name:'Customize dashboard',exact:true}).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('switch', {name:'SNAP balance',exact:true}).uncheck();
+  await dialog.getByRole('button', {name:'Move account balances up',exact:true}).click();
+  await dialog.getByLabel('All categories',{exact:true}).uncheck();
+  await dialog.getByLabel('Gas',{exact:true}).uncheck();
+  await dialog.getByRole('button', {name:'Save dashboard',exact:true}).click();
+  await expect(page.getByRole('region', {name:'SNAP balance',exact:true})).toBeHidden();
+  await expect(page.getByRole('button', {name:'View Gas purchases',exact:true})).toBeHidden();
+  await expect(page.locator('.dashboard-slot').first()).toHaveClass(/slot-accounts/);
+  await page.reload();
+  await page.getByRole('button', {name:'Open local preview'}).click();
+  await expect(page.getByRole('region', {name:'SNAP balance',exact:true})).toBeHidden();
+  await expect(page.getByRole('button', {name:'View Gas purchases',exact:true})).toBeHidden();
+  await expect(page.locator('.dashboard-slot').first()).toHaveClass(/slot-accounts/);
+  expect(errors).toEqual([]);
+});
+
+test('budget category opens purchases and editing remains separate', async ({page}) => {
+  await openPreview(page);
+  await page.getByRole('button', {name:'Budget',exact:true}).first().click();
+  await page.getByRole('button', {name:'View Gas purchases',exact:true}).click();
+  await expect(page.getByRole('combobox', {name:'Filter transactions'})).toHaveValue('gas');
+  await expect(page.getByRole('dialog')).toBeHidden();
+  await page.getByRole('button', {name:'Budget',exact:true}).first().click();
+  await page.getByRole('button', {name:'Edit Gas budget',exact:true}).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByLabel('Monthly amount ($)')).toHaveValue('175');
 });

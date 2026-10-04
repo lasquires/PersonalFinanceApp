@@ -1,6 +1,6 @@
 'use client';
 import { useState, type FormEvent } from 'react';
-import { LockKeyhole, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { browserDb } from '@/lib/supabase/client';
 import { googleSignInOptions } from '@/lib/auth';
 import { Field, FormError } from './ui';
@@ -44,8 +44,7 @@ export function AuthScreen({ configured, allowPreview, preview }: { configured: 
   return <main className="auth-page">
     <div className="auth-brand"><img src="/icons/icon-192.png" width="48" height="48" alt=""/><span>Squires<span className="brand-sub">FAMILY FINANCE</span></span></div>
     <section className="auth-content">
-      <div className="eyebrow"><LockKeyhole size={16}/> JUST OUR HOUSEHOLD</div>
-      <h1>A little clarity.<br/>More room for life.</h1>
+      <h1>Sign in</h1>
       {configured ? <>
         <button className={`secondary ${styles.google}`} type="button" disabled={busy} onClick={googleSignIn}>Continue with Google</button>
         <div className={styles.divider}><span>or use your password</span></div>
@@ -59,8 +58,8 @@ export function AuthScreen({ configured, allowPreview, preview }: { configured: 
       </> : <div>
         <h2>Your household is getting ready.</h2>
         <p className="muted">Private sign-in and shared data will be available once account setup is finished.</p>
-        {allowPreview && <button className="primary" onClick={preview}>Open local preview<ArrowRight size={18}/></button>}
       </div>}
+      {allowPreview && <button className="secondary" onClick={preview}>Open local preview<ArrowRight size={18}/></button>}
     </section>
     <footer className="auth-footer">Squires family &middot; One month at a time.</footer>
   </main>;
