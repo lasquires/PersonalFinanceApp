@@ -117,7 +117,7 @@
 **Files:** Update implementation checkboxes and create `docs/superpowers/plans/financial-review-courier-ledger.md`.
 
 - [ ] Run `npm test`, `npm run typecheck`, `npm run test:e2e`, and `npm run build`; record fresh counts, output, and any limitations. Stop only owned development services if a build/test lock requires it; leave the app available afterward.
-- [ ] Exercise concurrency using independent database sessions when available; otherwise explicitly record the PGlite/session limitation and verify locking/unique constraints without claiming multises­sion proof.
+- [ ] Exercise concurrency using independent database sessions when available; otherwise explicitly record the PGlite/session limitation and verify locking/unique constraints without claiming multiple-session proof.
 - [ ] Request independent code review focused on security boundaries, accounting accuracy, atomicity, snapshot ownership, task preservation, migration grants, and phone UI. Fix findings with failing regression tests first; rerun affected tests and final validation.
 - [ ] Scan staged changes for credentials and unrelated files; verify no-secret logging and compiled client imports. Commit reviewed release plus verification ledger.
 
