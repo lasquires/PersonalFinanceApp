@@ -44,6 +44,23 @@ test('snapshot carries recent review task references for follow-through',()=>{
  const snapshot=buildReviewSnapshot(data,{snapshotId:packet().snapshot_id,generatedAt:'2026-10-05T12:00:00Z',period:reviewPeriod('weekly','2026-09-28','America/New_York',new Date('2026-10-05T12:00:00Z')),recentReviews:[{...recent,task_links:[{task_key:'pantry-plan',task_id:'task-1',outcome:'created'}]}]});
  assert.deepEqual(snapshot.recent_reviews[0].task_references,[{task_key:'pantry-plan',task_id:'task-1',outcome:'created'}]);
 });
+test('weekly snapshot keeps complete monthly context separate from weekly purchases',()=>{
+ const data=defaults();data.transactions=[];data.events=[];
+ const purchase={id:'later',account_id:null,merchant:'Groceries',date:'2026-09-20',amount_cents:8000,category_id:'household',kind:'expense' as const,excluded:false,pending:false,removed:false,note:'',splits:[],source:'manual' as const,currency:'USD',needs_review:false,budget_state:'budgeted' as const};
+ data.transactions=[purchase];
+ const snapshot=buildReviewSnapshot(data,{snapshotId:packet().snapshot_id,generatedAt:'2026-10-05T12:00:00Z',period:reviewPeriod('weekly','2026-09-07','America/New_York',new Date('2026-10-05T12:00:00Z')),recentReviews:[]});
+ assert.equal(snapshot.period_totals.counted_spending_cents,0);
+ assert.equal(snapshot.transactions.length,0);
+ assert.equal(snapshot.monthly_budget[0].as_of,'2026-09-30');
+ assert.equal(snapshot.monthly_budget[0].categories.find(c=>c.id==='household')?.spent_cents,8000);
+});
+test('upcoming events omit distant recurring plans but include near and active ones',()=>{
+ const data=defaults();data.transactions=[];
+ const base={id:'event',name:'Plan',date:'2026-10-20',amount_cents:1000,direction:'outflow' as const,certainty:'Estimated' as const,notes:'',affects_runway:true,recurring_monthly:true,milestone:false};
+ data.events=[base,{...base,id:'distant',date:'2027-10-20'},{...base,id:'active',date:'2026-01-20'},{...base,id:'undated',date:null}];
+ const snapshot=buildReviewSnapshot(data,{snapshotId:packet().snapshot_id,generatedAt:'2026-10-05T12:00:00Z',period:reviewPeriod('weekly','2026-09-28','America/New_York',new Date('2026-10-05T12:00:00Z')),recentReviews:[]});
+ assert.deepEqual(snapshot.upcoming_events.map(e=>e.id),['event','active','undated']);
+});
 test('local review preview preserves task edits and deduplicates replays',()=>{
  const data=defaults();data.tasks=[];
  const snapshot=buildReviewSnapshot(data,{snapshotId:packet().snapshot_id,generatedAt:'2026-10-05T12:00:00Z',period:reviewPeriod('weekly','2026-09-28','America/New_York',new Date('2026-10-05T12:00:00Z')),recentReviews:[]});

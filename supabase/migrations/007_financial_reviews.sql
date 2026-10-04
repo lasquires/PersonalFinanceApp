@@ -18,6 +18,10 @@ create table public.review_rate_limits (
  identity_key text not null, hour_start timestamptz not null, operation text not null check(operation in ('export','delivery')),
  attempts integer not null default 0, primary key(identity_key,hour_start,operation)
 );
+create table public.review_source_versions (
+ id integer primary key check(id=1), version bigint not null default 0
+);
+insert into public.review_source_versions(id) values(1);
 create table public.financial_reviews (
  id uuid primary key default gen_random_uuid(), report_key text not null, revision integer not null check(revision>0),
  snapshot_id uuid not null references public.review_snapshots(id), kind text not null check(kind in ('weekly','monthly')),
@@ -40,7 +44,7 @@ create table public.review_delivery_receipts (
 );
 
 do $$ declare t text; begin
- foreach t in array array['review_courier_tokens','review_snapshots','review_rate_limits','financial_reviews','review_task_keys','financial_review_task_links','review_delivery_receipts'] loop
+ foreach t in array array['review_courier_tokens','review_snapshots','review_rate_limits','review_source_versions','financial_reviews','review_task_keys','financial_review_task_links','review_delivery_receipts'] loop
   execute format('alter table public.%I enable row level security',t);
   execute format('revoke all on public.%I from public,anon,authenticated',t);
   execute format('grant select,insert,update,delete on public.%I to service_role',t);
@@ -50,6 +54,14 @@ do $$ declare t text; begin
   execute format('create policy member_review_read on public.%I for select to authenticated using(public.is_member())',t);
  end loop;
 end $$;
+
+create function public.bump_review_source_version() returns trigger
+language plpgsql security definer set search_path='' as $$ begin
+ update public.review_source_versions set version=version+1 where id=1;
+ return null;
+end $$;
+create trigger track_review_transactions after insert or update or delete on public.transactions
+for each statement execute function public.bump_review_source_version();
 
 create function public.server_review_identity(member_id uuid,courier_hash text) returns text
 language plpgsql security definer set search_path='' as $$
@@ -177,6 +189,7 @@ end $$;
 revoke all on function public.server_review_identity(uuid,text),public.server_rotate_review_token(text),public.server_revoke_review_token(),public.server_reserve_review_request(uuid,text,text),public.server_record_review_snapshot(uuid,text,date,date,timestamptz,text,jsonb,uuid,text),public.server_save_financial_review(jsonb,text,uuid,text) from public,anon,authenticated;
 grant execute on function public.server_review_identity(uuid,text),public.server_rotate_review_token(text),public.server_revoke_review_token(),public.server_reserve_review_request(uuid,text,text),public.server_record_review_snapshot(uuid,text,date,date,timestamptz,text,jsonb,uuid,text),public.server_save_financial_review(jsonb,text,uuid,text) to service_role;
 revoke all on function public.lock_review_tasks() from public,anon,authenticated;
+revoke all on function public.bump_review_source_version() from public,anon,authenticated;
 
 alter table public.dashboard_preferences drop constraint known_dashboard_sections;
 alter table public.dashboard_preferences add constraint known_dashboard_sections check(cardinality(sections)<=9 and array_position(sections,null) is null and sections<@array['spending','accounts','reserve','snap','tasks','tips','upcoming','activity','reviews']::text[]);

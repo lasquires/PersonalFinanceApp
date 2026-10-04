@@ -41,3 +41,12 @@ Follow-through: recent review task references are now included in exports;
 focused test, full 65/65 unit/database suite, and typecheck passed.
 Release candidate: optimized production build passed and emits all review routes.
 Independent whole-change review and production rollout remain pending.
+
+Independent review returned three P2 findings. Fixed monthly context by
+loading transactions through export time and marking each month as_of, while
+keeping period totals/transaction list bounded to the selected window. Fixed
+upcoming recurring event horizon. Fixed export paging with an ID cursor and a
+database transaction-source version checked before/after reads; concurrent
+writes now fail retryably rather than silently changing totals. Focused tests
+observed failures before these changes, then passed. Full post-review checks
+and production rollout remain pending.

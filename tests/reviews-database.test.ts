@@ -9,7 +9,7 @@ const exportedAt=new Date(Date.now()-7200000).toISOString();
 const generatedAt=new Date(Date.now()-3600000).toISOString();
 async function database(){
  const db=new PGlite();
- await db.exec(`create role anon;create role authenticated;create role service_role;create schema auth;create table auth.users(id uuid primary key,email text);create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;create publication supabase_realtime;`);
+ await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create table auth.users(id uuid primary key,email text);create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;create publication supabase_realtime;`);
  for(const name of ['001_household','002_household_access','003_merchant_category_rules','004_snap_muse_integration','005_dashboard_preferences','006_purchase_reconciliation','007_financial_reviews'])await db.exec(await readFile(new URL('../supabase/migrations/'+name+'.sql',import.meta.url),'utf8'));
  await db.exec(`insert into auth.users values('${actor}','test@example.com');insert into members(id,name,role) values('${actor}','Luke','admin');select set_config('request.jwt.claim.sub','${actor}',false);`);
  await db.query('select public.server_rotate_review_token($1)',[hash]);
@@ -61,5 +61,18 @@ test('service role can read the exact source tables and use the delivery RPC',as
   await db.exec('set role service_role');
   for(const table of ['settings','categories','monthly_limits','transactions','accounts','tasks','financial_events','reservoir_entries','snap_balance_snapshots'])await db.query(`select * from public.${table} limit 1`);
   const result=await deliver(db);assert.equal(result.tasks_created,1);
+ }finally{await db.close();}
+});
+test('transaction source version changes on every write so an export can reject a racing sync',async()=>{
+ const db=await database();try{
+  const version=async()=>Number((await db.query<{version:number}>('select version from review_source_versions where id=1')).rows[0].version);
+  assert.equal(await version(),0);
+  await db.exec("insert into transactions(id,merchant,date,amount_cents,source) values('a','Store','2026-09-01',500,'manual')");
+  assert.equal(await version(),1);
+  await db.exec("update transactions set amount_cents=600 where id='a'");
+  assert.equal(await version(),2);
+  await db.exec("delete from transactions where id='a'");
+  assert.equal(await version(),3);
+  await db.exec('set role service_role');assert.equal(await version(),3);
  }finally{await db.close();}
 });
