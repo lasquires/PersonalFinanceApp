@@ -56,7 +56,7 @@ test.describe('phone layout', () => {
     await expect(page.getByRole('heading', { name: "This month's budget" })).toBeVisible();
     await page.locator('.bottom-nav').getByRole('button', { name: 'Transactions' }).click();
     await page.getByRole('button', { name: 'Add', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Add transaction' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Add purchase' })).toBeVisible();
     const dialog = page.getByRole('dialog');
     const bounds = await dialog.evaluate(element => {
       const rect = element.getBoundingClientRect();

@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { ArrowRight, ArrowUpRight, CalendarDays, CheckCheck, ChevronRight, CreditCard, Landmark, SlidersHorizontal, Wallet, WalletCards } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, CalendarDays, CheckCheck, ChevronRight, CreditCard, Landmark, Plus, SlidersHorizontal, Wallet, WalletCards } from 'lucide-react';
 import { budgetRows, forecast, money, monthLabel, today } from '@/lib/finance';
 import type { DashboardPreferences, DashboardSection } from '@/lib/dashboard-preferences';
 import type { MemberRole, Snapshot } from '@/lib/types';
@@ -9,6 +9,9 @@ import { DashboardEditor } from './dashboard-editor';
 import { suggestions, TaskRow } from './tasks';
 import { Empty } from './ui';
 import { WeeklyTips } from './weekly-tips';
+import { PurchaseEditor,blankPurchase } from './purchase-editor';
+import { countsInBudget } from '@/lib/reconciliation';
+import type { Transaction } from '@/lib/types';
 
 export function Home({ data, role, month, navigate, save, onError, preferences, savePreferences, preferencesLoading, preferencesError, preview }: {
   data: Snapshot; role: MemberRole; month: string; navigate: (tab: string, categoryId?: string, accountId?: string) => void;
@@ -16,6 +19,7 @@ export function Home({ data, role, month, navigate, save, onError, preferences, 
   savePreferences: (value: DashboardPreferences) => Promise<void>; preferencesLoading: boolean; preferencesError: string; preview: boolean;
 }) {
   const [customizing, setCustomizing] = useState(false);
+  const [purchase,setPurchase]=useState<Transaction|null>(null);
   const [categoriesExpanded, setCategoriesExpanded] = useState(false);
   const rows = budgetRows(data, month);
   const flexible = rows.filter(category => category.group === 'flexible');
@@ -30,7 +34,7 @@ export function Home({ data, role, month, navigate, save, onError, preferences, 
   const plan = forecast(data);
   const tasks = [...data.tasks, ...suggestions(data)].filter(task => ['Active', 'Suggested'].includes(task.status)).sort((a, b) => Number(b.priority === 'High') - Number(a.priority === 'High')).slice(0, 3);
   const events = data.events.filter(event => event.date && event.date >= today()).sort((a, b) => a.date!.localeCompare(b.date!)).slice(0, 4);
-  const transactions = data.transactions.filter(transaction => !transaction.removed && transaction.date.startsWith(month.slice(0, 7))).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+  const transactions = data.transactions.filter(transaction => countsInBudget(transaction) && transaction.date.startsWith(month.slice(0, 7))).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
   const review = data.transactions.filter(transaction => !transaction.removed && transaction.date.startsWith(month.slice(0, 7)) && (transaction.needs_review || (!transaction.category_id && !transaction.splits.length && transaction.kind === 'expense' && !transaction.excluded))).length;
   const snap = [...data.snap_balances].sort((a, b) => b.observed_at.localeCompare(a.observed_at))[0];
   const snapFresh = snap && Date.now() - Date.parse(snap.observed_at) <= 36 * 60 * 60 * 1000;
@@ -40,7 +44,7 @@ export function Home({ data, role, month, navigate, save, onError, preferences, 
       case 'spending': return <section className="dashboard-section spending-section" aria-label="Spending categories">
         <div className="section-heading"><h2><Wallet size={18}/>Spending categories</h2>{openButton('Open budget', 'Budget')}</div>
         <div className="spending-column-labels"><span>Category</span><span>Remaining</span></div>
-        <div className="category-list">{(categoriesExpanded ? visibleCategories : visibleCategories.slice(0, 6)).map(category => <CategoryBar key={category.id} row={category} onClick={() => navigate('Transactions', category.id)}/>)}</div>
+        <div className="category-list">{(categoriesExpanded ? visibleCategories : visibleCategories.slice(0, 6)).map(category => <CategoryBar key={category.id} row={category} onClick={() => navigate('Transactions', category.id)} onAdd={role==='viewer'?undefined:()=>setPurchase(blankPurchase(category.id))}/>)}</div>
         {visibleCategories.length > 6 && <button className="text-btn" aria-expanded={categoriesExpanded} onClick={() => setCategoriesExpanded(value => !value)}>{categoriesExpanded ? 'Show fewer categories' : `Show ${visibleCategories.length - 6} more categories`}<ChevronRight size={15}/></button>}
         {!visibleCategories.length && <Empty title="No categories selected"/>}
       </section>;
@@ -86,10 +90,12 @@ export function Home({ data, role, month, navigate, save, onError, preferences, 
   };
   return <>
     <div className="dashboard-heading"><h1>Overview</h1><div className="dashboard-actions">{review > 0 && <button className="review-link" onClick={() => navigate('Transactions', 'review')}>{review} to review<ChevronRight size={14}/></button>}<button className="icon-btn" title="Customize dashboard" aria-label="Customize dashboard" disabled={preferencesLoading} onClick={() => setCustomizing(true)}><SlidersHorizontal size={20}/></button></div></div>
+    {role!=='viewer'&&<div className="home-purchase-command"><button className="primary" onClick={()=>setPurchase(blankPurchase())}><Plus size={18}/>Add purchase</button></div>}
     {preferencesError && <p className="form-error" role="alert">{preferencesError}</p>}
     {preferences.sections.includes('spending') && <div className="dashboard-summary"><div className="summary-primary"><span>Available to spend</span><strong className={'big-money ' + (left < 0 ? 'negative' : '')}>{money(left)}</strong><small>Everyday budget · {monthLabel(month)}</small></div><div><span>Spent</span><strong>{money(spent)}</strong></div><div><span>Budget + rollover</span><strong>{money(available)}</strong></div></div>}
     <div className="dashboard-grid">{preferences.sections.filter(section => section !== 'tips' || data.tips.some(tip => tip.status === 'active' && (!tip.expires_at || tip.expires_at >= today()))).map(section => <div key={section} className={'dashboard-slot slot-' + section}>{renderSection(section)}</div>)}</div>
     {!preferences.sections.length && <Empty title="Your dashboard is empty" action="Customize dashboard" onAction={() => setCustomizing(true)}/>}
     {customizing && <DashboardEditor data={data} preferences={preferences} save={savePreferences} close={() => setCustomizing(false)} preview={preview}/>}
+    {purchase&&<PurchaseEditor transaction={purchase} data={data} save={save} close={()=>setPurchase(null)}/>}
   </>;
 }

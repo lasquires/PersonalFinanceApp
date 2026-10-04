@@ -34,6 +34,7 @@ async function installMock(page: Page, state: {value: DashboardPreferences | nul
   await page.route(mockUrl + '/rest/v1/**', async route => {
     const url = new URL(route.request().url());
     const table = url.pathname.split('/').pop()!;
+    if (table === 'list_import_match_rejections') {await route.fulfill({status:200,json:[]});return;}
     if (table === 'dashboard_preferences') {
       if (route.request().method() === 'POST') {
         const body = route.request().postDataJSON();

@@ -13,8 +13,7 @@ export function plaid() {
 export async function items():Promise<Item[]> { const {data,error}=await adminDb().rpc('server_items');if(error)throw new Error('Could not read connection status');return data; }
 export function normalized(t:PlaidTransaction) {
  const p=t.personal_finance_category;const classification=classify(p?.primary,p?.detailed);
- const categories:Record<string,string>={TRANSPORTATION_GAS:'gas',FOOD_AND_DRINK_GROCERIES:'food',GENERAL_MERCHANDISE_SUPERSTORES:'household',RENT_AND_UTILITIES_GAS_AND_ELECTRICITY:'electricity',RENT_AND_UTILITIES_WATER:'water',RENT_AND_UTILITIES_INTERNET_AND_CABLE:'internet',MEDICAL_DENTAL_CARE:'medical',MEDICAL_PRIMARY_CARE:'medical',MEDICAL_PHARMACIES_AND_SUPPLEMENTS:'medical'};
- const category=categories[p?.detailed??'']??null;
+ const category=null;
  return{id:t.transaction_id,account_id:t.account_id,merchant:t.merchant_name??t.name,date:t.date,amount_cents:Math.round(t.amount*100),category_id:category,kind:classification.kind,pending:t.pending,pending_transaction_id:t.pending_transaction_id,currency:t.iso_currency_code??'UNKNOWN',needs_review:classification.review||(!category&&classification.kind==='expense')||p?.detailed==='GENERAL_MERCHANDISE_SUPERSTORES'};
 }
 export async function syncItem(item:Item) {

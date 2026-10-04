@@ -1,8 +1,9 @@
 "use client";
 import { browserDb } from "./supabase/client";
 import { defaults } from "./defaults";
-import type { Snapshot } from "./types";
+import type { Snapshot, MatchRejection, Transaction } from "./types";
 import { validateSplits } from "./finance";
+import { reconcilePreview,savePreviewPurchase } from './reconciliation';
 const tables = {
   categories: "categories",
   limits: "monthly_limits",
@@ -82,6 +83,16 @@ export async function readSnapshot(): Promise<Snapshot> {
   if (error)
     throw new Error("Household settings are missing. Finish database setup.");
   result.settings = data;
+  result.match_rejections=[];
+  let last: MatchRejection | undefined;
+  while (true) {
+    const {data: rows,error: rejectionError}=await db.rpc('list_import_match_rejections',{after_import_id:last?.import_id ?? null,after_manual_id:last?.manual_id ?? null,page_size:1000});
+    if(rejectionError) throw new Error('Could not load purchase matching decisions. Please try again.');
+    const page=(rows ?? []) as MatchRejection[];
+    result.match_rejections.push(...page);
+    if(page.length<1000) break;
+    last=page[page.length-1];
+  }
   return result;
 }
 export async function writeAction(action: string, payload: unknown) {
@@ -112,6 +123,11 @@ export function previewAction(
   payload: Record<string, unknown>,
 ): Snapshot {
   const next = structuredClone(data);
+  if (['match_import','unmatch_import','separate_import'].includes(action)) return reconcilePreview(data,action,payload);
+  if(action==='transaction') {
+    validateSplits(Number(payload.amount_cents),payload.splits as {amount_cents:number}[]);
+    return savePreviewPurchase(data,payload as unknown as Transaction,payload.remember_category===true);
+  }
   if (action === "settings")
     next.settings = payload as unknown as Snapshot["settings"];
   else if (action === "tip_status")
@@ -146,14 +162,9 @@ export function previewAction(
       } as const
     )[action as "category"];
     if (!key) throw new Error("Unknown change");
-    if (action === "transaction")
-      validateSplits(
-        Number(payload.amount_cents),
-        payload.splits as { amount_cents: number }[],
-      );
     Object.assign(next, {
       [key]: [...next[key].filter((x) => x.id !== payload.id), payload],
     });
   }
-  return next;
+  return action==='delete_transaction' ? reconcilePreview(next,action,payload) : next;
 }

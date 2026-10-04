@@ -1,4 +1,5 @@
 import type { BudgetRow, Category, FinancialEvent, Limit, Snapshot, Transaction } from './types';
+import { countsInBudget } from './reconciliation';
 
 export const money = (cents: number, decimals = false) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: decimals ? 2 : 0 }).format(cents / 100);
 export const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
@@ -8,7 +9,7 @@ export const monthLabel = (date: string) => new Date(date.slice(0, 7) + '-01T12:
 export function cents(value: string | number) { const n = Number(String(value).replace(/[$,]/g, '')); if (!Number.isFinite(n) || Math.abs(n) > 100000000) throw new Error('Enter a valid dollar amount.'); return Math.round(n * 100); }
 export const limitFor = (c: Category, month: string, limits: Limit[]) => limits.find(l => l.category_id === c.id && l.month === month)?.amount_cents ?? c.monthly_cents;
 export function allocations(t: Transaction) {
-  if (t.excluded || t.removed || t.kind !== 'expense' || t.currency !== 'USD') return [];
+  if (!countsInBudget(t)) return [];
   return t.splits.length ? t.splits : [{ category_id: t.category_id ?? 'uncategorized', amount_cents: t.amount_cents }];
 }
 export function budgetRows(data: Snapshot, month: string): BudgetRow[] {

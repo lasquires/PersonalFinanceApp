@@ -6,14 +6,14 @@ import type { BudgetRow, Snapshot } from '@/lib/types';
 import { Field, FormError, Modal, Submit } from './ui';
 export type Save = (action: string, payload: Record<string, unknown>) => Promise<void>;
 
-export function CategoryBar({ row, onClick }: { row: BudgetRow; onClick?: () => void }) {
+export function CategoryBar({ row, onClick, onAdd }: { row: BudgetRow; onClick?: () => void; onAdd?:()=>void }) {
   const available = row.budget + row.carried;
   const percent = Math.min(100, Math.max(0, available > 0 ? row.spent / available * 100 : row.spent > 0 ? 100 : 0));
-  return <button className="category-row" onClick={onClick} aria-label={`View ${row.name} purchases`}>
+  return <div className="category-with-add"><button className="category-row" onClick={onClick} aria-label={`View ${row.name} purchases`}>
     <span className="category-identity"><span className="category-name"><i style={{background:row.color}}/>{row.name}{row.rollover && <RotateCcw size={12}/>}</span><span className="category-detail">{money(row.spent)} of {money(available)} spent</span></span>
     <span className="category-meter" aria-hidden="true"><span style={{width:percent + '%',background:row.remaining < 0 ? 'var(--red)' : row.color}}/></span>
     <strong className={row.remaining < 0 ? 'negative' : ''}>{money(row.remaining)}</strong><ArrowUpRight size={14}/>
-  </button>;
+  </button>{onAdd&&<button className="icon-btn category-add" aria-label={`Add ${row.name} purchase`} title={`Add ${row.name} purchase`} onClick={onAdd}><Plus size={18}/></button>}</div>;
 }
 
 export function Budget({ data, month, save, navigate }: { data: Snapshot; month: string; save: Save; navigate: (tab: string, categoryId?: string) => void }) {
