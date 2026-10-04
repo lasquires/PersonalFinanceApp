@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   ShieldCheck,
+  FileText,
 } from "lucide-react";
 import { AuthScreen } from "./auth-screen";
 import { Home } from "./home";
@@ -27,6 +28,10 @@ import { previewAction, readSnapshot, writeAction } from "@/lib/store";
 import { addMonths, monthLabel, monthOf, today } from "@/lib/finance";
 import type { MemberRole, Snapshot } from "@/lib/types";
 import { useDashboardPreferences } from "@/lib/use-dashboard-preferences";
+import { FinancialReviews } from './financial-reviews';
+import { applyReviewPreview } from '@/lib/reviews/preview';
+import type { ReviewPacket } from '@/lib/reviews/contracts';
+import type { ReviewSnapshot } from '@/lib/reviews/export';
 const navigation = [
   { name: "Home", icon: HomeIcon },
   { name: "Budget", icon: Wallet },
@@ -34,6 +39,7 @@ const navigation = [
   { name: "Plan", icon: CalendarDays },
   { name: "Tasks", icon: ListChecks },
 ];
+const menuNavigation=[...navigation,{name:'Reviews',icon:FileText}];
 export function FinanceApp({
   configured,
   allowPreview,
@@ -49,6 +55,7 @@ export function FinanceApp({
   const [name, setName] = useState("Household");
   const [role, setRole] = useState<MemberRole>("viewer");
   const [tab, setTab] = useState("Home");
+  const [reviewId,setReviewId]=useState<string|null>(null);
   const [transactionFilter, setTransactionFilter] = useState("all");
   const [transactionAccount, setTransactionAccount] = useState("all");
   const [userId, setUserId] = useState<string | null>(null);
@@ -79,6 +86,7 @@ export function FinanceApp({
     }
   }, []);
   useEffect(() => {
+    const id=new URLSearchParams(window.location.search).get('review');if(id&&/^[0-9a-f-]{36}$/i.test(id)){setReviewId(id);setTab('Reviews');}
     const stored = localStorage.getItem("squires-theme") ?? "light";
     setTheme(stored);
     document.documentElement.dataset.theme = stored;
@@ -165,10 +173,13 @@ export function FinanceApp({
       setTransactionFilter(categoryId ?? "all");
       setTransactionAccount(accountId ?? "all");
     }
+    if(value==='Reviews')setReviewId(categoryId??null);
     setTab(value);
     setMobile(false);
     window.scrollTo({ top: 0 });
   };
+  const selectReview=(id:string|null)=>{setReviewId(id);const url=new URL(window.location.href);if(id)url.searchParams.set('review',id);else url.searchParams.delete('review');window.history.replaceState(null,'',url);};
+  const savePreviewReview=async(packet:ReviewPacket,snapshot:ReviewSnapshot)=>{const result=applyReviewPreview(dataRef.current!,packet,snapshot);dataRef.current=result.data;setData(result.data);return result.receipt;};
   const logout = async () => {
     ++loadVersion.current;
     dataRef.current = null;
@@ -233,7 +244,7 @@ export function FinanceApp({
           <X size={20} />
         </button>
         <nav>
-          {navigation.map(({ name, icon: Icon }) => (
+          {menuNavigation.map(({ name, icon: Icon }) => (
             <button
               className={tab === name ? "active" : ""}
               key={name}
@@ -341,6 +352,7 @@ export function FinanceApp({
                 <Transactions data={data} save={save} month={month} initialFilter={transactionFilter} initialAccount={transactionAccount} canWrite={preview||role!=='viewer'} />
               )}{" "}
               {tab === "Tasks" && <Tasks data={data} save={save} />}{" "}
+              {tab === 'Reviews' && <FinancialReviews data={data} role={role} preview={preview} refresh={refresh} selectedId={reviewId} select={selectReview} previewSave={savePreviewReview}/>}
               {tab === "Plan" && <Plan data={data} save={save} />}{" "}
               {tab === "Settings" && (
                 <Settings

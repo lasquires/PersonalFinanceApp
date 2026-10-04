@@ -3,7 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { adminDb } from './auth';
 import type { ReviewIdentity } from './reviews-auth';
 import { buildReviewSnapshot } from '../reviews/export';
-import { reviewPacketSchema, SNAPSHOT_BYTE_LIMIT, type ReviewReceipt, type ReviewSummary } from '../reviews/contracts';
+import { reviewPacketSchema, SNAPSHOT_BYTE_LIMIT, type ReviewDetail, type ReviewReceipt, type ReviewSummary } from '../reviews/contracts';
 import { reviewPeriod, type ReviewKind } from '../reviews/periods';
 import { canonicalJson, checkReviewDb, ReviewError } from '../reviews/http';
 import { defaults } from '../defaults';
@@ -37,14 +37,20 @@ export async function loadReviewSnapshot(identity:ReviewIdentity,kind:ReviewKind
  data.snap_balances=await allRows(db,'snap_balance_snapshots','id,benefit_month,balance_cents,observed_at,source');
  const recent=await db.from('financial_reviews').select(reviewSummaryColumns).order('period_end',{ascending:false}).order('revision',{ascending:false}).limit(100);checkReviewDb(recent.error);
  const latest=new Map<string,ReviewSummary>();for(const r of (recent.data??[]) as unknown as ReviewSummary[])if(!latest.has(r.report_key))latest.set(r.report_key,r);
- const snapshot=buildReviewSnapshot(data as Snapshot,{snapshotId:randomUUID(),generatedAt:new Date().toISOString(),period,recentReviews:[...latest.values()].slice(0,12)});
+ const recentReviews=[...latest.values()].slice(0,12);
+ const links=recentReviews.length?await db.from('financial_review_task_links').select('report_id,task_key,task_id,outcome').in('report_id',recentReviews.map(r=>r.id)):null;
+ if(links)checkReviewDb(links.error);
+ const linkedByReport=new Map<string,ReviewDetail['task_links']>();
+ for(const link of links?.data??[]){const current=linkedByReport.get(link.report_id)??[];current.push({task_key:link.task_key,task_id:link.task_id,outcome:link.outcome});linkedByReport.set(link.report_id,current);}
+ const snapshot=buildReviewSnapshot(data as Snapshot,{snapshotId:randomUUID(),generatedAt:new Date().toISOString(),period,recentReviews:recentReviews.map(r=>({...r,task_links:linkedByReport.get(r.id)??[]}))});
  const serialized=JSON.stringify(snapshot);
  if(Buffer.byteLength(serialized)>SNAPSHOT_BYTE_LIMIT)throw new ReviewError(413,'Snapshot exceeds 2 MiB. Choose a weekly period instead.');
  const recorded=await db.rpc('server_record_review_snapshot',{...identity,snapshot_id:snapshot.snapshot_id,review_kind:kind,start_date:period.period_start,end_date:period.period_end,exported_at:snapshot.generated_at,snapshot_hash:createHash('sha256').update(serialized).digest('hex'),snapshot_coverage:snapshot.coverage});checkReviewDb(recorded.error);
  return snapshot;
 }
+export async function reserveReviewDelivery(identity:ReviewIdentity){const {error}=await adminDb().rpc('server_reserve_review_request',{...identity,request_operation:'delivery'});checkReviewDb(error);}
 export async function deliverReview(identity:ReviewIdentity,input:unknown):Promise<ReviewReceipt>{
- const db=adminDb();const reserved=await db.rpc('server_reserve_review_request',{...identity,request_operation:'delivery'});checkReviewDb(reserved.error);
+ const db=adminDb();
  const parsed=reviewPacketSchema.safeParse(input);
  if(!parsed.success)throw new ReviewError(400,'Correct the packet fields before sending again.',[...new Set(parsed.error.issues.map(i=>i.path.join('.')))].slice(0,30));
  const {data,error}=await db.rpc('server_save_financial_review',{...identity,review_packet:parsed.data,packet_hash:createHash('sha256').update(canonicalJson(parsed.data)).digest('hex')});checkReviewDb(error);

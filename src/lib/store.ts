@@ -4,6 +4,7 @@ import { defaults } from "./defaults";
 import type { Snapshot, MatchRejection, Transaction } from "./types";
 import { validateSplits } from "./finance";
 import { reconcilePreview,savePreviewPurchase } from './reconciliation';
+import type { ReviewSummary } from './reviews/contracts';
 const tables = {
   categories: "categories",
   limits: "monthly_limits",
@@ -83,6 +84,13 @@ export async function readSnapshot(): Promise<Snapshot> {
   if (error)
     throw new Error("Household settings are missing. Finish database setup.");
   result.settings = data;
+  result.reviews=[];
+  for(let page=0;;page++){
+    const {data: reviews,error: reviewError}=await db.from('financial_reviews').select('id,report_key,revision,kind,period_start,period_end,title,overview,generated_at,saved_at,snapshot_generated_at,warnings').order('id').range(page*1000,page*1000+999);
+    if(reviewError&&['42P01','PGRST205'].includes(reviewError.code??'')){result.review_setup_missing=true;break;}
+    if(reviewError)throw new Error('Financial reviews could not be loaded. Please try again.');
+    result.reviews.push(...(reviews??[]) as ReviewSummary[]);if((reviews??[]).length<1000)break;
+  }
   result.match_rejections=[];
   let last: MatchRejection | undefined;
   while (true) {

@@ -56,3 +56,10 @@ test('rate reservation is bounded and task equivalents link or warn without reop
  const result=await deliver(db,p,'d'.repeat(64));assert.equal(result.tasks_created,0);assert.ok(result.warnings.some((w:string)=>/completed|dismissed/i.test(w)));
  }finally{await db.close();}
 });
+test('service role can read the exact source tables and use the delivery RPC',async()=>{
+ const db=await database();try{
+  await db.exec('set role service_role');
+  for(const table of ['settings','categories','monthly_limits','transactions','accounts','tasks','financial_events','reservoir_entries','snap_balance_snapshots'])await db.query(`select * from public.${table} limit 1`);
+  const result=await deliver(db);assert.equal(result.tasks_created,1);
+ }finally{await db.close();}
+});

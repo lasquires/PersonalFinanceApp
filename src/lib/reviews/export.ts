@@ -1,10 +1,10 @@
 import { allocations, budgetRows, forecast, monthOf } from '../finance';
 import { countsInBudget } from '../reconciliation';
 import type { Snapshot } from '../types';
-import type { ReviewSummary } from './contracts';
+import type { ReviewDetail, ReviewSummary } from './contracts';
 import { calendarDate, shiftDate, type ReviewPeriod } from './periods';
 
-export function buildReviewSnapshot(data:Snapshot,context:{snapshotId:string;generatedAt:string;period:ReviewPeriod;recentReviews:ReviewSummary[]}) {
+export function buildReviewSnapshot(data:Snapshot,context:{snapshotId:string;generatedAt:string;period:ReviewPeriod;recentReviews:(ReviewSummary & {task_links?:ReviewDetail['task_links']})[]}) {
  const {period,generatedAt}=context; const asOf=calendarDate(new Date(generatedAt),period.timezone);
  const usd={...data,transactions:data.transactions.filter(t=>t.currency==='USD')};
  const rows=data.transactions.filter(t=>!t.removed&&t.date>=period.period_start&&t.date<=period.period_end);
@@ -32,7 +32,7 @@ export function buildReviewSnapshot(data:Snapshot,context:{snapshotId:string;gen
  snap_balance:snap?{benefit_month:snap.benefit_month,balance_cents:snap.balance_cents,observed_at:snap.observed_at,restricted_funds:true}:null,
  reserve_forecast:{estimated:true,as_of:asOf,start_balance_cents:f.startBalance,floor_cents:data.settings.floor_cents,annual_irregular_cents:data.settings.annual_irregular_cents,annual_notes:data.settings.annual_notes,months_to_floor:f.monthsToFloor,points:f.points.map(p=>({month:p.month,balance_cents:p.balance,planned_costs_cents:p.costs}))},
  tasks:data.tasks.map(t=>({id:t.id,title:t.title,status:t.status,priority:t.priority,assignee:t.assignee,due_date:t.due_date,notes:t.notes,impact_cents:t.impact_cents,impact_type:t.impact_type,category_id:t.category_id,event_id:t.event_id,task_key:t.suggestion_key?.startsWith('review:')?t.suggestion_key.slice(7):null})),
- recent_reviews:context.recentReviews.map(r=>({id:r.id,report_key:r.report_key,revision:r.revision,title:r.title,overview:r.overview,period_start:r.period_start,period_end:r.period_end})),
+ recent_reviews:context.recentReviews.map(r=>({id:r.id,report_key:r.report_key,revision:r.revision,title:r.title,overview:r.overview,period_start:r.period_start,period_end:r.period_end,task_references:(r.task_links??[]).map(link=>({task_key:link.task_key,task_id:link.task_id,outcome:link.outcome}))})),
  };
 }
 export type ReviewSnapshot=ReturnType<typeof buildReviewSnapshot>;

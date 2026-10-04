@@ -1,5 +1,10 @@
 begin;
 
+-- The review exporter uses the service role for narrow column projections.
+grant select on public.settings,public.categories,public.monthly_limits,public.transactions,
+ public.accounts,public.tasks,public.financial_events,public.reservoir_entries,
+ public.snap_balance_snapshots to service_role;
+
 create table public.review_courier_tokens (
  id uuid primary key default gen_random_uuid(), token_hash text not null unique check(token_hash ~ '^[0-9a-f]{64}$'),
  created_at timestamptz not null default now(), revoked_at timestamptz, last_used_at timestamptz

@@ -16,6 +16,7 @@ import { PlaidConnect, api } from "./plaid-connect";
 import { Empty } from "./ui";
 import { money } from "@/lib/finance";
 import { HouseholdMembers } from "./household-members";
+import { ReviewCourierSettings } from './review-courier-settings';
 export function Settings({
   data,
   preview,
@@ -70,9 +71,9 @@ export function Settings({
       )}
       <section className="settings-section">
         <h3><Bot size={17}/>ChatGPT access</h3>
-        <p className="muted">Connect once, then a scheduled ChatGPT Workspace Agent can review the week automatically. ChatGPT can read the household plan and create tips or suggested tasks, but it cannot move money or access bank credentials. ChatGPT may still require confirmation according to your workspace policy.</p>
         <label className="field"><span>Private connector address</span><input readOnly value="https://squires-family-finance.vercel.app/api/mcp" onFocus={event=>event.currentTarget.select()}/></label>
       </section>
+      <ReviewCourierSettings preview={preview} role={role}/>
       {role === "admin" && !preview && <section className="settings-section">
         <div className="section-heading">
           <h3><KeyRound size={17}/>Muse SNAP updates</h3>

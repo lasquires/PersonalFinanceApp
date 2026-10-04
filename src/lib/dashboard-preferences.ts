@@ -9,12 +9,13 @@ export const dashboardSections = [
   { id: 'tips', label: 'Weekly tips' },
   { id: 'upcoming', label: 'Upcoming events' },
   { id: 'activity', label: 'Recent transactions' },
+  { id: 'reviews', label: 'Financial review' },
 ] as const;
 
-const sectionIds = ['spending', 'accounts', 'reserve', 'snap', 'tasks', 'tips', 'upcoming', 'activity'] as const;
+const sectionIds = ['spending', 'accounts', 'reserve', 'snap', 'tasks', 'tips', 'upcoming', 'activity','reviews'] as const;
 const ids = z.array(z.string().min(1).max(300)).max(1000).refine(values => new Set(values).size === values.length);
 export const dashboardPreferencesSchema = z.strictObject({
-  sections: z.array(z.enum(sectionIds)).max(8).refine(values => new Set(values).size === values.length),
+  sections: z.array(z.enum(sectionIds)).max(9).refine(values => new Set(values).size === values.length),
   account_ids: ids.nullable(),
   category_ids: ids.nullable(),
 });

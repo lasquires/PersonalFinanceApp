@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { ArrowRight, ArrowUpRight, CalendarDays, CheckCheck, ChevronRight, CreditCard, Landmark, Plus, SlidersHorizontal, Wallet, WalletCards } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, CalendarDays, CheckCheck, ChevronRight, CreditCard, FileText, Landmark, Plus, SlidersHorizontal, Wallet, WalletCards } from 'lucide-react';
 import { budgetRows, forecast, money, monthLabel, today } from '@/lib/finance';
 import type { DashboardPreferences, DashboardSection } from '@/lib/dashboard-preferences';
 import type { MemberRole, Snapshot } from '@/lib/types';
@@ -38,6 +38,7 @@ export function Home({ data, role, month, navigate, save, onError, preferences, 
   const review = data.transactions.filter(transaction => !transaction.removed && transaction.date.startsWith(month.slice(0, 7)) && (transaction.needs_review || (!transaction.category_id && !transaction.splits.length && transaction.kind === 'expense' && !transaction.excluded))).length;
   const snap = [...data.snap_balances].sort((a, b) => b.observed_at.localeCompare(a.observed_at))[0];
   const snapFresh = snap && Date.now() - Date.parse(snap.observed_at) <= 36 * 60 * 60 * 1000;
+  const latestReview=[...(data.reviews??[])].sort((a,b)=>b.period_end.localeCompare(a.period_end)||b.revision-a.revision||b.saved_at.localeCompare(a.saved_at))[0];
   const openButton = (label: string, tab: string) => <button className="icon-btn" title={label} aria-label={label} onClick={() => navigate(tab)}><ArrowUpRight size={18}/></button>;
   const renderSection = (section: DashboardSection) => {
     switch (section) {
@@ -76,6 +77,7 @@ export function Home({ data, role, month, navigate, save, onError, preferences, 
         {!tasks.length && <Empty title="All caught up"/>}
       </section>;
       case 'tips': return <WeeklyTips tips={data.tips} role={role} save={save} onError={onError}/>;
+      case 'reviews': return <section className="dashboard-section" aria-label="Financial review"><div className="section-heading"><h2><FileText size={18}/>Financial review</h2>{openButton('Open financial reviews','Reviews')}</div>{latestReview?<><button className="review-home-link" onClick={()=>navigate('Reviews',latestReview.id)}><strong>{latestReview.title}</strong><ChevronRight size={16}/></button><small className="muted">{latestReview.period_start} - {latestReview.period_end}</small><p className="review-home-overview">{latestReview.overview}</p><small className="muted">Delivered {new Date(latestReview.saved_at).toLocaleDateString()}</small></>:<Empty title="No financial reviews yet" action="Open reviews" onAction={()=>navigate('Reviews')}/>}</section>;
       case 'upcoming': return <section className="dashboard-section" aria-label="Upcoming events">
         <div className="section-heading"><h2><CalendarDays size={18}/>Upcoming</h2>{openButton('Open calendar', 'Plan')}</div>
         {events.map(event => <button className="event-row" key={event.id} onClick={() => navigate('Plan')}><span className="date-tile"><span>{new Date(event.date! + 'T12:00:00').toLocaleDateString('en-US',{month:'short'})}</span><strong>{Number(event.date!.slice(8))}</strong></span><span className="grow"><strong>{event.name}</strong><small className="muted">{event.certainty}</small></span><strong>{event.direction === 'inflow' ? '+' : ''}{money(event.amount_cents)}</strong></button>)}

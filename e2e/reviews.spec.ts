@@ -1,0 +1,36 @@
+import { expect,test } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
+test('financial review handoff imports a detailed report and publishes a task once',async({page})=>{
+ await page.goto('/');await page.getByRole('button',{name:'Open local preview'}).click();
+ await page.getByRole('button',{name:'Reviews',exact:true}).first().click();
+ const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Export review packet',exact:true}).click();
+ const download=await pending;const bundle=JSON.parse(await readFile((await download.path())!,'utf8'));
+ const p={...bundle.example_packet,title:'A steadier week',overview:'Keep grocery spending measured while covering the next bills.',generated_at:new Date().toISOString(),wins:[{title:'A clear plan',explanation:'You have a plan for the coming week.',evidence_ids:[]}],concerns:[],stretch_plan:[{action:'Use the pantry first',tradeoff:'Fewer new ingredients this week.',savings_cents:2000,savings_period:'weekly',evidence_ids:[]}],upcoming_priorities:[],follow_through:[],assumptions:['Savings are an estimate.'],missing_information:['No live bank connection in local preview.'],evidence:[],tasks:[{task_key:'pantry-plan',title:'Plan three pantry meals',assignee:'Together',priority:'Normal',due_date:null,notes:'Choose meals together.',impact_cents:2000,impact_type:'once',basis:'suggested'}]};
+ const file={name:'financial-review.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(p))};
+ await page.getByLabel('Import review JSON',{exact:true}).setInputFiles(file);
+ await expect(page.getByRole('heading',{name:'A steadier week',exact:true})).toBeVisible();
+ await expect(page.getByText('Use the pantry first',{exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Back to reviews',exact:true}).click();
+ await page.getByLabel('Import review JSON',{exact:true}).setInputFiles(file);
+ await expect(page.getByRole('status')).toContainText('Already delivered');
+ await page.locator('.sidebar').getByRole('button',{name:/^Tasks/}).click();
+ await expect(page.getByText('Plan three pantry meals',{exact:true})).toHaveCount(1);
+ await page.getByRole('button',{name:'Reviews',exact:true}).first().click();
+ await page.getByRole('button',{name:/A steadier week/}).click();
+ await page.screenshot({path:'test-results/financial-review-desktop.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+ await page.screenshot({path:'test-results/financial-review-phone.png',fullPage:true});
+});
+test('review dashboard selection preserves existing choices and incomplete imports fail clearly',async({page})=>{
+ await page.setViewportSize({width:390,height:844});await page.goto('/');await page.getByRole('button',{name:'Open local preview'}).click();
+ await page.getByRole('button',{name:'Customize dashboard',exact:true}).click();
+ await expect(page.getByRole('switch',{name:'Financial review',exact:true})).toBeChecked();
+ await page.getByRole('switch',{name:'Financial review',exact:true}).uncheck();
+ await page.getByRole('button',{name:'Save dashboard',exact:true}).click();
+ await page.getByRole('button',{name:'Open navigation',exact:true}).click();
+ await page.getByRole('button',{name:'Reviews',exact:true}).click();
+ await page.getByLabel('Import review JSON',{exact:true}).setInputFiles({name:'bad.json',mimeType:'application/json',buffer:Buffer.from('{}')});
+ await expect(page.locator('.financial-reviews .form-error')).toContainText('packet');
+ await expect(page.locator('.bottom-nav button')).toHaveCount(5);
+});

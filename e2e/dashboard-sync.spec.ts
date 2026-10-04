@@ -46,7 +46,7 @@ async function installMock(page: Page, state: {value: DashboardPreferences | nul
     if (table === 'members' && url.searchParams.get('select') === 'name,role') {
       await route.fulfill({status:200,json:{name:'Luke',role:'admin'}});return;
     }
-    const tableKeys: Record<string,string> = {monthly_limits:'limits',financial_events:'events',reservoir_entries:'reservoir',snap_balance_snapshots:'snap_balances',household_invitations:'invitations'};
+    const tableKeys: Record<string,string> = {monthly_limits:'limits',financial_events:'events',reservoir_entries:'reservoir',snap_balance_snapshots:'snap_balances',household_invitations:'invitations',financial_reviews:'reviews'};
     await route.fulfill({status:200,json:table === 'settings' ? data.settings : data[(tableKeys[table] ?? table) as keyof typeof data]});
   });
   await page.routeWebSocket('wss://tcrbcqrsafuckhsknfoy.supabase.co/**', socket => socket.close());
