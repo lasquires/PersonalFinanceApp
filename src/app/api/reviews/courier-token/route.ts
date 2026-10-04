@@ -1,0 +1,7 @@
+import { createHash, randomBytes } from 'node:crypto';
+import { requireRole,adminDb } from '@/lib/server/auth';
+import { checkReviewDb,ReviewError,reviewErrorResponse,reviewJson } from '@/lib/reviews/http';
+async function administrator(request:Request){try{await requireRole(request,['admin']);}catch(error){throw new ReviewError(error instanceof Error&&/Administrator|origin/.test(error.message)?403:401,'Administrator sign-in required.');}}
+export async function GET(request:Request){try{await administrator(request);const {data,error}=await adminDb().from('review_courier_tokens').select('created_at,last_used_at').is('revoked_at',null).maybeSingle();checkReviewDb(error);return reviewJson({active:!!data,created_at:data?.created_at??null,last_used_at:data?.last_used_at??null});}catch(error){return reviewErrorResponse(error);}}
+export async function POST(request:Request){try{await administrator(request);const token='review_'+randomBytes(32).toString('base64url');const {error}=await adminDb().rpc('server_rotate_review_token',{next_hash:createHash('sha256').update(token).digest('hex')});checkReviewDb(error);return reviewJson({token},201);}catch(error){return reviewErrorResponse(error);}}
+export async function DELETE(request:Request){try{await administrator(request);const {error}=await adminDb().rpc('server_revoke_review_token');checkReviewDb(error);return reviewJson({revoked:true});}catch(error){return reviewErrorResponse(error);}}
