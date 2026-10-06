@@ -110,6 +110,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .sync-line { display: flex; gap: 7px; align-items: center; margin-top: 12px; font-size: 11px; color: var(--muted); }
 .sync-line i { flex-shrink: 0; width: 5px; height: 5px; border-radius: 50%; }
 .fresh { background: #218771; }.stale { background: var(--amber); }
+.snap-status { margin: 12px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.snap-status.warning { color: var(--amber); }
 .weekly-tips { margin: 0; padding: 20px 0 0; border-top: 1px solid var(--border); }
 .tips-list { display: grid; grid-template-columns: 1fr; gap: 0; }
 .tip-item { padding: 14px 0; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; }

@@ -12,6 +12,7 @@ import { WeeklyTips } from './weekly-tips';
 import { PurchaseEditor,blankPurchase } from './purchase-editor';
 import { countsInBudget } from '@/lib/reconciliation';
 import type { Transaction } from '@/lib/types';
+import { snapDisplay } from '@/lib/snap/display';
 
 export function Home({ data, role, month, navigate, save, onError, preferences, savePreferences, preferencesLoading, preferencesError, preview }: {
   data: Snapshot; role: MemberRole; month: string; navigate: (tab: string, categoryId?: string, accountId?: string) => void;
@@ -36,8 +37,7 @@ export function Home({ data, role, month, navigate, save, onError, preferences, 
   const events = data.events.filter(event => event.date && event.date >= today()).sort((a, b) => a.date!.localeCompare(b.date!)).slice(0, 4);
   const transactions = data.transactions.filter(transaction => countsInBudget(transaction) && transaction.date.startsWith(month.slice(0, 7))).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
   const review = data.transactions.filter(transaction => !transaction.removed && transaction.date.startsWith(month.slice(0, 7)) && (transaction.needs_review || (!transaction.category_id && !transaction.splits.length && transaction.kind === 'expense' && !transaction.excluded))).length;
-  const snap = [...data.snap_balances].sort((a, b) => b.observed_at.localeCompare(a.observed_at))[0];
-  const snapFresh = snap && Date.now() - Date.parse(snap.observed_at) <= 36 * 60 * 60 * 1000;
+  const snap = snapDisplay(data.snap_balances, data.snap_public_observations);
   const latestReview=[...(data.reviews??[])].sort((a,b)=>b.period_end.localeCompare(a.period_end)||b.revision-a.revision||b.saved_at.localeCompare(a.saved_at))[0];
   const openButton = (label: string, tab: string) => <button className="icon-btn" title={label} aria-label={label} onClick={() => navigate(tab)}><ArrowUpRight size={18}/></button>;
   const renderSection = (section: DashboardSection) => {
@@ -68,8 +68,10 @@ export function Home({ data, role, month, navigate, save, onError, preferences, 
       </section>;
       case 'snap': return <section className="dashboard-section snap-section" aria-label="SNAP balance">
         <div className="section-heading"><h2><WalletCards size={18}/>SNAP balance</h2>{openButton('Manage SNAP updates', 'Settings')}</div>
-        <div className="module-amount">{snap ? money(snap.balance_cents, true) : '--'}</div>
-        {snap ? <><div className="detail-line"><span>Benefit month</span><strong>{monthLabel(snap.benefit_month)}</strong></div><div className="sync-line"><i className={snapFresh ? 'fresh' : 'stale'}/><span>{snapFresh ? 'Checked' : 'Last checked'} {new Date(snap.observed_at).toLocaleString()}</span></div></> : <button className="text-btn" onClick={() => navigate('Settings')}>Connect Muse<ArrowRight size={15}/></button>}
+        <div className="module-amount">{snap.balance ? money(snap.balance.balance_cents, true) : '--'}</div>
+        {snap.balance ? <><div className="detail-line"><span>Benefit month</span><strong>{monthLabel(snap.balance.benefit_month)}</strong></div><div className="sync-line"><i className={snap.stale ? 'stale' : 'fresh'}/><span>{snap.unverified ? 'Unverified Muse report' : 'Key-protected report'} · {new Date(snap.balance.observed_at).toLocaleString()}</span></div></> : <p className="snap-status">Awaiting the first balance report from Muse.</p>}
+        {snap.stale && snap.balance && <p className="snap-status warning">No recent update. Check your balance before relying on it.</p>}
+        {snap.flagged && <p className="snap-status warning">A newer report was held after an unusual increase. Check the benefits site.</p>}
       </section>;
       case 'tasks': return <section className="dashboard-section" aria-label="Tasks">
         <div className="section-heading"><h2><CheckCheck size={18}/>Tasks</h2>{openButton('View all tasks', 'Tasks')}</div>

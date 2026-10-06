@@ -25,8 +25,15 @@ function household() {
   return data;
 }
 
-async function installMock(page: Page, state: {value: DashboardPreferences | null}) {
+async function installMock(page: Page, state: {value: DashboardPreferences | null}, publicReport = false) {
   const data = household();
+  if (publicReport) {
+    data.snap_balances[0].observed_at = new Date(Date.now() - 2 * 60 * 60_000).toISOString();
+    data.snap_public_observations = [
+      {id:'snap-public:accepted',benefit_month:monthOf(today()),balance_cents:19758,observed_at:new Date().toISOString(),received_at:new Date().toISOString(),flagged:false},
+      {id:'snap-public:flagged',benefit_month:monthOf(today()),balance_cents:90000,observed_at:new Date(Date.now()+60_000).toISOString(),received_at:new Date().toISOString(),flagged:true},
+    ];
+  }
   const token = `${Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64url')}.${Buffer.from(JSON.stringify({sub:userId,exp:Math.floor(Date.now()/1000)+3600})).toString('base64url')}.c2FtcGxl`;
   const session = {access_token:token,refresh_token:'sample-refresh-token',expires_at:Math.floor(Date.now()/1000)+3600,expires_in:3600,token_type:'bearer',user:{id:userId,email:'example@example.com',aud:'authenticated',role:'authenticated',app_metadata:{},user_metadata:{},created_at:new Date().toISOString()}};
   await page.addInitScript(value => { document.cookie = `sb-tcrbcqrsafuckhsknfoy-auth-token=base64-${value}; Path=/; SameSite=Lax`; },Buffer.from(JSON.stringify(session)).toString('base64url'));
@@ -90,6 +97,18 @@ test('category drilldown includes split purchases and supports full history', as
   await expect(page.getByText('Previous month fuel',{exact:true})).toBeHidden();
   await page.getByRole('button',{name:'All time',exact:true}).click();
   await expect(page.getByText('Previous month fuel',{exact:true})).toBeVisible();
+});
+
+test('dashboard labels keyless SNAP reports and withholds flagged amounts', async ({page}) => {
+  await page.setViewportSize({width:390,height:844});
+  await installMock(page,{value:null},true);
+  const card = page.getByRole('region',{name:'SNAP balance',exact:true});
+  await expect(card.getByText('$197.58')).toBeVisible();
+  await expect(card.getByText(/Unverified Muse report/)).toBeVisible();
+  await expect(card.getByText(/newer report was held/)).toBeVisible();
+  await expect(card.getByText('$900.00')).toBeHidden();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({path:'test-results/snap-unverified-phone.png',fullPage:true});
 });
 
 test('dashboard and customization fit desktop, phone, and dark appearance', async ({page}) => {

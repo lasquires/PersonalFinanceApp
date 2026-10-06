@@ -112,6 +112,7 @@ export function defaults(): Snapshot {
     events: [],
     reservoir: [],
     snap_balances: [],
+    snap_public_observations: [],
     reviews: [],
     settings: {
       id: 1,
