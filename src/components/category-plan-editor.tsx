@@ -19,10 +19,10 @@ export function CategoryPlanEditor({ data, apply, close }: { data: Snapshot; app
   plan?.changes.forEach(change => { if (change.action === 'update' && change.name) finalNames.set(change.id, change.name); });
   const deletes = plan?.changes.filter(change => change.action === 'delete') ?? [];
   return <Modal title="ChatGPT category plan" close={close}>
-    <p className="muted small">Copy your categories into ChatGPT, then paste its JSON reply here. Review every change before applying it.</p>
+    <p className="muted small">Copy these instructions into ChatGPT. It will return a copyable JSON code box; paste that whole box below. Review every change before applying it.</p>
     <button className="secondary" type="button" onClick={async () => { try { await navigator.clipboard.writeText(instructions); setCopied(true); setError(''); } catch { setError('Clipboard unavailable. Select and copy the instructions below.'); } }}><ClipboardCopy size={16}/>{copied ? 'Instructions copied' : 'Copy instructions'}</button>
     <details className="category-plan-instructions"><summary>View instructions</summary><textarea aria-label="ChatGPT instructions" readOnly value={instructions}/></details>
-    <Field label="Paste ChatGPT reply"><textarea className="category-plan-reply" value={reply} onChange={event => { setReply(event.target.value); setPlan(null); setConfirmed(false); setError(''); }} placeholder='{"version":1,"changes":[...]}' spellCheck={false}/></Field>
+    <Field label="Paste ChatGPT's JSON box"><textarea className="category-plan-reply" value={reply} onChange={event => { setReply(event.target.value); setPlan(null); setConfirmed(false); setError(''); }} placeholder='{"version":1,"changes":[...]}' spellCheck={false}/></Field>
     <button className="secondary" type="button" disabled={!reply.trim() || busy} onClick={() => { try { setPlan(parseCategoryPlan(reply, data.categories)); setError(''); } catch (failure) { setPlan(null); setError((failure as Error).message); } }}><ClipboardPaste size={16}/>Preview changes</button>
     {plan && <div className="category-plan-preview"><h3>Review {plan.changes.length} changes</h3><ul>{plan.changes.map((change, index) => <li key={index}>
       {change.action === 'add' ? <><strong>Add {change.name}</strong><span>{money(change.monthly_cents)} monthly · {change.group}{change.rollover ? ' · rolls over' : ''}</span></>
@@ -35,4 +35,3 @@ export function CategoryPlanEditor({ data, apply, close }: { data: Snapshot; app
     <FormError error={error}/>
   </Modal>;
 }
-

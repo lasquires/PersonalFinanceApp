@@ -12,7 +12,15 @@ test('category instructions disclose only category settings and require explicit
   assert.match(packet, /"id": "gas"/);
   assert.match(packet, /confirm_delete/);
   assert.match(packet, /replacement_id/);
+  assert.match(packet, /```json/);
   assert.doesNotMatch(packet, /Private merchant|Private note/);
+});
+
+test('plan parser accepts a copyable JSON block with Windows line endings and surrounding text', () => {
+  const plan = JSON.stringify({version:1,changes:[{action:'update',id:'gas',name:'Fuel'}]});
+  const reply = `Here is the plan:\r\n\r\n\`\`\`json\r\n${plan}\r\n\`\`\`\r\nReview it before applying.`;
+  assert.equal(parseCategoryPlan(reply,defaults().categories).changes[0].action,'update');
+  assert.throws(() => parseCategoryPlan(`${reply}\n\n\`\`\`json\n${plan}\n\`\`\``,defaults().categories),/one JSON code block/i);
 });
 
 test('plan parser accepts explicit additions and updates but never deletes by omission', () => {
@@ -72,4 +80,3 @@ test('database applies a category plan atomically and rejects stale or read-only
     await assert.rejects(db.query(`select public.apply_category_plan($1,$2,$3)`,[JSON.stringify(valid),JSON.stringify(expected),'2026-10-01']),/write access/i);
   } finally { await db.close(); }
 });
-

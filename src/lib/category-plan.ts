@@ -16,13 +16,16 @@ export function expectedCategorySnapshot(categories: Category[]) {
 
 export function makeCategoryInstructions(categories: Category[]) {
   const settings = categories.map(({ id, name, group, monthly_cents, rollover }) => ({ id, name, group, monthly_cents, rollover }));
-  return `Help me revise my family budget categories. Use only the category settings below; you have not been given bank accounts or purchases. Ask me about any ambiguous changes. Return ONLY one JSON object, without explanation, with this shape: {"version":1,"changes":[...]}. Do not include unchanged categories. Omitting a category does NOT delete it.\n\nEach change must be exactly one of:\n- {"action":"add","name":"Gifts","group":"flexible","monthly_cents":5000,"rollover":false}\n- {"action":"update","id":"gas","name":"Fuel","monthly_cents":22500} (include only fields to change)\n- {"action":"delete","id":"gas","confirm_name":"Gas","replacement_id":"dates","confirm_delete":true,"reason":"My explicit reason for merging this category"}\n\nOnly produce a delete when I expressly request that named category be deleted. Copy its exact existing id and name into id and confirm_name. replacement_id must name a DIFFERENT existing category that will remain; all historical purchases, splits, tasks, and remembered merchant assignments for the deleted category move there. Explain the deletion in reason. Never infer deletion from omission or rename. Values are whole cents, not dollars; groups are flexible, fixed, or business. Do not include account data, transactions, notes, or secrets.\n\nCurrent categories:\n${JSON.stringify(settings, null, 2)}`;
+  return `Help me revise my family budget categories. Use only the category settings below; you have not been given bank accounts or purchases. Ask me about any ambiguous changes. Return ONLY one JSON object in a single \`\`\`json code block (the copyable text box in ChatGPT), without explanation, with this shape: {"version":1,"changes":[...]}. Do not include unchanged categories. Omitting a category does NOT delete it.\n\nEach change must be exactly one of:\n- {"action":"add","name":"Gifts","group":"flexible","monthly_cents":5000,"rollover":false}\n- {"action":"update","id":"gas","name":"Fuel","monthly_cents":22500} (include only fields to change)\n- {"action":"delete","id":"gas","confirm_name":"Gas","replacement_id":"dates","confirm_delete":true,"reason":"My explicit reason for merging this category"}\n\nOnly produce a delete when I expressly request that named category be deleted. Copy its exact existing id and name into id and confirm_name. replacement_id must name a DIFFERENT existing category that will remain; all historical purchases, splits, tasks, and remembered merchant assignments for the deleted category move there. Explain the deletion in reason. Never infer deletion from omission or rename. Values are whole cents, not dollars; groups are flexible, fixed, or business. Do not include account data, transactions, notes, or secrets.\n\nCurrent categories:\n${JSON.stringify(settings, null, 2)}`;
 }
 
 export function parseCategoryPlan(text: string, categories: Category[]): CategoryPlan {
-  const cleaned = text.trim().replace(/^```(?:json)?\s*\n([\s\S]*?)\n```$/i, '$1');
+  const trimmed = text.trim();
+  const blocks = [...trimmed.matchAll(/```(?:json)?[ \t]*\r?\n([\s\S]*?)\r?\n```/gi)];
+  if (blocks.length > 1) throw new Error('Paste one JSON code block only.');
+  const cleaned = blocks.length === 1 ? blocks[0][1].trim() : trimmed;
   let raw: unknown;
-  try { raw = JSON.parse(cleaned); } catch { throw new Error('Paste only the JSON plan from ChatGPT, without extra prose.'); }
+  try { raw = JSON.parse(cleaned); } catch { throw new Error('Could not read the plan. Copy the entire JSON code box from ChatGPT and paste it here.'); }
   const parsed = schema.safeParse(raw);
   if (!parsed.success) throw new Error('The JSON plan has missing or invalid fields. Ask ChatGPT to follow the copied instructions exactly.');
   const plan = parsed.data;
@@ -68,4 +71,3 @@ export function previewCategoryPlan(data: Snapshot, plan: CategoryPlan, month: s
   }
   return next;
 }
-
