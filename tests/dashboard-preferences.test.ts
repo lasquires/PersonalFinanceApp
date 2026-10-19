@@ -6,6 +6,7 @@ import { dashboardPreferencesSchema, defaultDashboardPreferences, parseDashboard
 
 test('dashboard preference validation preserves explicit empty selections and order', () => {
   assert.deepEqual(parseDashboardPreferences({sections:['accounts','spending'],account_ids:[],category_ids:['gas']}), {sections:['accounts','spending'],account_ids:[],category_ids:['gas']});
+  assert.deepEqual(parseDashboardPreferences({sections:['spending'],account_ids:null,category_ids:[]}), {sections:['spending'],account_ids:null,category_ids:[]});
   assert.deepEqual(parseDashboardPreferences({sections:[],account_ids:null,category_ids:null}), {sections:[],account_ids:null,category_ids:null});
   assert.deepEqual(parseDashboardPreferences(null), defaultDashboardPreferences());
   assert.equal(dashboardPreferencesSchema.safeParse({sections:['accounts','accounts'],account_ids:null,category_ids:null}).success, false);

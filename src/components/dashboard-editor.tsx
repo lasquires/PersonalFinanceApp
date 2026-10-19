@@ -45,7 +45,7 @@ export function DashboardEditor({ data, preferences, save, close, preview }: {
           {data.accounts.map(account => <label className="check" key={account.id}><input type="checkbox" checked={draft.account_ids === null || draft.account_ids.includes(account.id)} onChange={() => toggleItem('account_ids', account.id, data.accounts.map(item => item.id))}/><span>{account.name}{account.mask ? ` · ${account.mask}` : ''}<small>{account.member} · {account.institution}</small></span></label>)}
         </fieldset>}
         {draft.sections.includes('spending') && <fieldset className="dashboard-item-options"><legend>Categories</legend>
-          <label className="check"><input type="checkbox" checked={draft.category_ids === null} onChange={event => setDraft(value => ({ ...value, category_ids: event.target.checked ? null : data.categories.map(category => category.id) }))}/>All categories</label>
+          <div className="category-selection-actions"><label className="check"><input type="checkbox" checked={draft.category_ids === null} onChange={event => setDraft(value => ({ ...value, category_ids: event.target.checked ? null : [] }))}/>All categories</label><button className="text-btn" type="button" disabled={draft.category_ids?.length === 0} onClick={() => setDraft(value => ({ ...value, category_ids: [] }))}>Deselect all</button></div>
           <div className="category-options">{data.categories.map(category => <label className="check" key={category.id}><input type="checkbox" checked={draft.category_ids === null || draft.category_ids.includes(category.id)} onChange={() => toggleItem('category_ids', category.id, data.categories.map(item => item.id))}/>{category.name}</label>)}</div>
         </fieldset>}
       </fieldset>

@@ -174,6 +174,7 @@ dialog { padding: 23px; max-width: 580px; border-radius: 8px; }
 .dashboard-item-options legend { font-size: 13px; font-weight: 600; padding-right: 12px; }
 .dashboard-item-options small { font-size: 10px; color: var(--muted); }
 .dashboard-item-options .check { margin: 12px 0; }
+.category-selection-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .category-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0 16px; }
 .dashboard-section .section-heading h2,.switch-label span,.check span { overflow-wrap: anywhere; }
 [data-theme=dark] { --bg: #151619; --surface: #1d1f23; --text: #eceef1; --muted: #a1a5af; --border: #303239; --green: #63a7ef; --green-light: #253344; --red: #ee8d9c; --amber: #d6ad65; }
@@ -234,7 +235,7 @@ dialog { padding: 23px; max-width: 580px; border-radius: 8px; }
   .topbar { height: 58px; padding: 0 15px; }.breadcrumb { display: none; }
   .main-content { padding: 23px 19px; }.dashboard-heading { margin-bottom: 18px; }
   .dashboard-heading h1 { font-size: 23px; }
-  .home-commands { gap: 9px; margin-bottom: 23px; }
+  .home-commands { grid-template-columns: 1fr; gap: 9px; margin-bottom: 23px; }
   .home-command { min-height: 60px; padding: 10px; font-size: 14px; gap: 6px; }
   .dashboard-section { padding-top: 17px; }.dashboard-section .section-heading { margin-bottom: 10px; }
   .category-row { grid-template-columns: minmax(0,1fr) 48px 58px 14px; gap: 9px; padding: 11px 0; }
