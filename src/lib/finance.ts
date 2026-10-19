@@ -8,6 +8,7 @@ export function addMonths(month: string, count: number) { const d = new Date(mon
 export const monthLabel = (date: string) => new Date(date.slice(0, 7) + '-01T12:00:00Z').toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 export function cents(value: string | number) { const n = Number(String(value).replace(/[$,]/g, '')); if (!Number.isFinite(n) || Math.abs(n) > 100000000) throw new Error('Enter a valid dollar amount.'); return Math.round(n * 100); }
 export const limitFor = (c: Category, month: string, limits: Limit[]) => limits.find(l => l.category_id === c.id && l.month === month)?.amount_cents ?? c.monthly_cents;
+export const sortedCategories = <T extends Category>(categories: T[]): T[] => [...categories].sort((a, b) => a.name.localeCompare(b.name, 'en-US', { sensitivity: 'base' }) || a.id.localeCompare(b.id));
 export function allocations(t: Transaction) {
   if (!countsInBudget(t)) return [];
   return t.splits.length ? t.splits : [{ category_id: t.category_id ?? 'uncategorized', amount_cents: t.amount_cents }];
@@ -15,7 +16,7 @@ export function allocations(t: Transaction) {
 export function budgetRows(data: Snapshot, month: string): BudgetRow[] {
   const spending = new Map<string, number>(); const pending = new Map<string, number>();
   for (const t of data.transactions) for (const s of allocations(t)) { const key = s.category_id + ':' + monthOf(t.date); spending.set(key, (spending.get(key) ?? 0) + s.amount_cents); if (t.pending) pending.set(key, (pending.get(key) ?? 0) + s.amount_cents); }
-  return data.categories.map(c => {
+  return sortedCategories(data.categories).map(c => {
     let carried = 0;
     if (c.rollover) for (let m = c.start_month; m < month; m = addMonths(m, 1)) carried += limitFor(c, m, data.limits) - (spending.get(c.id + ':' + m) ?? 0);
     const budget = month < c.start_month ? 0 : limitFor(c, month, data.limits);

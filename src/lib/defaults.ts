@@ -1,5 +1,5 @@
 import type { Snapshot } from "./types";
-import { monthOf, today } from "./finance";
+import { monthOf, sortedCategories, today } from "./finance";
 export function defaults(): Snapshot {
   const start = monthOf(today());
   const rows: [
@@ -31,7 +31,7 @@ export function defaults(): Snapshot {
     ["epidemic", "Epidemic Sound", 17.99, "business", false, "#b68636"],
   ];
   return {
-    categories: rows.map(([id, name, amount, group, rollover, color]) => ({
+    categories: sortedCategories(rows.map(([id, name, amount, group, rollover, color]) => ({
       id,
       name,
       monthly_cents: Math.round(amount * 100),
@@ -39,7 +39,7 @@ export function defaults(): Snapshot {
       rollover,
       color,
       start_month: start,
-    })),
+    }))),
     limits: [],
     transactions: [],
     accounts: [],

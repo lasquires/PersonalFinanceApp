@@ -2,7 +2,7 @@
 import { browserDb } from "./supabase/client";
 import { defaults } from "./defaults";
 import type { Snapshot, MatchRejection, Transaction } from "./types";
-import { validateSplits } from "./finance";
+import { sortedCategories, validateSplits } from "./finance";
 import { reconcilePreview,savePreviewPurchase } from './reconciliation';
 import type { ReviewSummary } from './reviews/contracts';
 const tables = {
@@ -48,35 +48,7 @@ export async function readSnapshot(): Promise<Snapshot> {
       Object.assign(result, { [key]: rows });
     }),
   );
-  const preferred = [
-    "luke",
-    "samantha",
-    "dates",
-    "gas",
-    "household",
-    "carwash",
-    "offering",
-    "medical",
-    "food",
-    "electricity",
-    "water",
-    "trash",
-    "internet",
-    "insurance",
-    "gym",
-    "chatgpt",
-    "pgsharp",
-    "shopify",
-    "epidemic",
-  ];
-  result.categories.sort((a, b) => {
-    const left = preferred.indexOf(a.id);
-    const right = preferred.indexOf(b.id);
-    if (left === -1 && right === -1) return a.name.localeCompare(b.name);
-    if (left === -1) return 1;
-    if (right === -1) return -1;
-    return left - right;
-  });
+  result.categories = sortedCategories(result.categories);
   const { data, error } = await db
     .from("settings")
     .select("*")
@@ -105,6 +77,15 @@ export async function readSnapshot(): Promise<Snapshot> {
   return result;
 }
 export async function writeAction(action: string, payload: unknown) {
+  if (action === "delete_category") {
+    const value = payload as { id: string; replacement_id: string | null };
+    const { error } = await browserDb().rpc("delete_household_category", {
+      category_id: value.id,
+      replacement_id: value.replacement_id,
+    });
+    if (error) throw new Error(error.message.includes('split') ? 'Choose another category for split purchases before deleting.' : 'This category could not be deleted. Please refresh and try again.');
+    return;
+  }
   if (action === "tip_status") {
     const value = payload as { id: string; status: "archived" | "dismissed" };
     const { error } = await browserDb().rpc("set_tip_status", {
@@ -154,6 +135,24 @@ export function previewAction(
         !(x.category_id === payload.category_id && x.month === payload.month),
     );
     next.limits.push(payload as unknown as Snapshot["limits"][number]);
+  } else if (action === 'delete_category') {
+    const id = String(payload.id);
+    const replacement = payload.replacement_id ? String(payload.replacement_id) : null;
+    if (!next.categories.some(c => c.id === id)) throw new Error('Category no longer exists.');
+    if (replacement && !next.categories.some(c => c.id === replacement && c.id !== id)) throw new Error('Choose another category.');
+    if (!replacement && next.transactions.some(t => t.splits.some(s => s.category_id === id))) throw new Error('Choose another category for split purchases.');
+    next.transactions = next.transactions.map(t => {
+      if (t.category_id !== id && !t.splits.some(s => s.category_id === id)) return t;
+      const category_id = t.category_id === id ? replacement : t.category_id;
+      const splits = t.splits.map(s => s.category_id === id ? { ...s, category_id: replacement! } : s);
+      return { ...t, category_id, splits,
+        budget_state: !replacement && t.category_id === id && t.budget_state !== 'matched' ? 'unbudgeted' as const : t.budget_state,
+        needs_review: !replacement && t.category_id === id && t.kind === 'expense' && !t.excluded ? true : t.needs_review };
+    });
+    next.tasks = next.tasks.map(t => t.category_id === id ? { ...t, category_id: replacement } : t);
+    next.limits = next.limits.filter(l => l.category_id !== id);
+    if (next.preview_merchant_rules) next.preview_merchant_rules = Object.fromEntries(Object.entries(next.preview_merchant_rules).flatMap(([key, value]) => value === id ? replacement ? [[key, replacement]] : [] : [[key, value]]));
+    next.categories = next.categories.filter(c => c.id !== id);
   } else if (action === "delete_event")
     next.events = next.events.filter((x) => x.id !== payload.id);
   else if (action === "delete_transaction")
@@ -171,9 +170,8 @@ export function previewAction(
       } as const
     )[action as "category"];
     if (!key) throw new Error("Unknown change");
-    Object.assign(next, {
-      [key]: [...next[key].filter((x) => x.id !== payload.id), payload],
-    });
+    if (key === 'categories') next.categories = sortedCategories([...next.categories.filter(x => x.id !== payload.id), payload as unknown as Snapshot['categories'][number]]);
+    else Object.assign(next, { [key]: [...(next[key] as {id:string}[]).filter(x => x.id !== payload.id), payload] });
   }
   return action==='delete_transaction' ? reconcilePreview(next,action,payload) : next;
 }

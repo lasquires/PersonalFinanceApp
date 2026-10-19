@@ -346,7 +346,7 @@ export function FinanceApp({
                 />
               )}{" "}
               {tab === "Budget" && (
-                <Budget data={data} month={month} save={save} navigate={navigate} />
+                <Budget data={data} month={month} save={save} navigate={navigate} canWrite={preview||role!=='viewer'} />
               )}{" "}
               {tab === "Transactions" && (
                 <Transactions data={data} save={save} month={month} initialFilter={transactionFilter} initialAccount={transactionAccount} canWrite={preview||role!=='viewer'} />
