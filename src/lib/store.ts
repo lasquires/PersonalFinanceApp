@@ -5,6 +5,7 @@ import type { Snapshot, MatchRejection, Transaction } from "./types";
 import { sortedCategories, validateSplits } from "./finance";
 import { reconcilePreview,savePreviewPurchase } from './reconciliation';
 import type { ReviewSummary } from './reviews/contracts';
+import { expectedCategorySnapshot, type CategoryPlan } from './category-plan';
 const tables = {
   categories: "categories",
   limits: "monthly_limits",
@@ -107,6 +108,17 @@ export async function writeAction(action: string, payload: unknown) {
         : "This change could not be saved. Check the values and try again.",
     );
 }
+export async function writeCategoryPlan(plan: CategoryPlan, categories: Snapshot['categories'], month: string) {
+  const { error } = await browserDb().rpc('apply_category_plan', {
+    changes: plan.changes,
+    expected_categories: expectedCategorySnapshot(categories),
+    start_month: month,
+  });
+  if (error) throw new Error(error.message.includes('Categories changed')
+    ? 'Categories changed on another device. Refresh and copy new instructions.'
+    : error.code === 'PGRST202' ? 'Category plans need a database update before they can be used.'
+    : `The plan was not applied: ${error.message}`);
+}
 export function previewAction(
   data: Snapshot,
   action: string,
@@ -175,3 +187,4 @@ export function previewAction(
   }
   return action==='delete_transaction' ? reconcilePreview(next,action,payload) : next;
 }
+

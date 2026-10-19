@@ -24,7 +24,8 @@ import { Transactions } from "./transactions";
 import { Settings } from "./settings";
 import { browserDb } from "@/lib/supabase/client";
 import { defaults } from "@/lib/defaults";
-import { previewAction, readSnapshot, writeAction } from "@/lib/store";
+import { previewAction, readSnapshot, writeAction, writeCategoryPlan } from "@/lib/store";
+import { previewCategoryPlan, type CategoryPlan } from '@/lib/category-plan';
 import { addMonths, monthLabel, monthOf, today } from "@/lib/finance";
 import type { MemberRole, Snapshot } from "@/lib/types";
 import { useDashboardPreferences } from "@/lib/use-dashboard-preferences";
@@ -167,6 +168,21 @@ export function FinanceApp({
     setToast(preview ? "Saved in local preview" : "Saved");
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(""), 2500);
+  };
+  const applyCategoryPlan = async (plan: CategoryPlan) => {
+    if (role === 'viewer' && !preview) throw new Error('Read-only access cannot change household finances.');
+    const current = dataRef.current!;
+    if (preview) {
+      const next = previewCategoryPlan(current, plan, month);
+      dataRef.current = next;
+      setData(next);
+    } else {
+      await writeCategoryPlan(plan, current.categories, month);
+      await refresh();
+    }
+    setToast(preview ? 'Plan applied in local preview' : 'Category plan applied');
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(''), 2500);
   };
   const navigate = (value: string, categoryId?: string, accountId?: string) => {
     if (value === "Transactions") {
@@ -346,7 +362,7 @@ export function FinanceApp({
                 />
               )}{" "}
               {tab === "Budget" && (
-                <Budget data={data} month={month} save={save} navigate={navigate} canWrite={preview||role!=='viewer'} />
+                <Budget data={data} month={month} save={save} navigate={navigate} canWrite={preview||role!=='viewer'} applyCategoryPlan={applyCategoryPlan} />
               )}{" "}
               {tab === "Transactions" && (
                 <Transactions data={data} save={save} month={month} initialFilter={transactionFilter} initialAccount={transactionAccount} canWrite={preview||role!=='viewer'} />
@@ -406,3 +422,4 @@ export function FinanceApp({
     </div>
   );
 }
+

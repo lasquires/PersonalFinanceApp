@@ -1,9 +1,11 @@
 'use client';
 import { useState } from 'react';
-import { ArrowUpRight, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { ArrowUpRight, ClipboardPaste, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { budgetRows, cents, money } from '@/lib/finance';
 import type { BudgetRow, Category, Snapshot } from '@/lib/types';
 import { Field, FormError, Modal, Submit } from './ui';
+import { CategoryPlanEditor } from './category-plan-editor';
+import type { CategoryPlan } from '@/lib/category-plan';
 export type Save = (action: string, payload: Record<string, unknown>) => Promise<void>;
 
 export function CategoryBar({ row, onClick, onAdd }: { row: BudgetRow; onClick?: () => void; onAdd?:()=>void }) {
@@ -16,15 +18,16 @@ export function CategoryBar({ row, onClick, onAdd }: { row: BudgetRow; onClick?:
   </button>{onAdd&&<button className="icon-btn category-add" aria-label={`Add ${row.name} purchase`} title={`Add ${row.name} purchase`} onClick={onAdd}><Plus size={18}/></button>}</div>;
 }
 
-export function Budget({ data, month, save, navigate, canWrite }: { data: Snapshot; month: string; save: Save; navigate: (tab: string, categoryId?: string) => void; canWrite: boolean }) {
+export function Budget({ data, month, save, navigate, canWrite, applyCategoryPlan }: { data: Snapshot; month: string; save: Save; navigate: (tab: string, categoryId?: string) => void; canWrite: boolean; applyCategoryPlan: (plan: CategoryPlan) => Promise<void> }) {
   const [editing, setEditing] = useState<BudgetRow | 'new' | null>(null);
   const [deleting, setDeleting] = useState<Category | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [planning, setPlanning] = useState(false);
   const rows = budgetRows(data, month);
   const flexible = rows.filter(category => category.group === 'flexible');
   return <>
-    <div className="section-heading"><div><h2>This month's budget</h2><p className="muted">{money(flexible.reduce((total, category) => total + category.remaining, 0))} available for everyday spending</p></div>{canWrite&&<button className="secondary" onClick={() => {setEditing('new');setError('');}}><Plus size={16}/>Category</button>}</div>
+    <div className="section-heading"><div><h2>This month's budget</h2><p className="muted">{money(flexible.reduce((total, category) => total + category.remaining, 0))} available for everyday spending</p></div>{canWrite&&<div className="category-plan-actions"><button className="secondary" onClick={() => setPlanning(true)}><ClipboardPaste size={16}/>ChatGPT plan</button><button className="secondary" onClick={() => {setEditing('new');setError('');}}><Plus size={16}/>Category</button></div>}</div>
     {(['flexible','fixed','business'] as const).map(group => <section className="budget-section" key={group}>
       <div className="section-heading"><h3>{group === 'flexible' ? 'Everyday spending' : group === 'fixed' ? 'Fixed & recurring' : 'Rova / business'}</h3><span className="muted small">{money(rows.filter(row => row.group === group).reduce((total, row) => total + row.budget, 0))} / month</span></div>
       <div className="budget-table"><div className="budget-table-head"><span>Category</span><span>Budget</span><span>Spent</span><span>Remaining</span><span/></div>
@@ -34,6 +37,7 @@ export function Budget({ data, month, save, navigate, canWrite }: { data: Snapsh
         </div>)}
       </div>
     </section>)}
+    {planning && <CategoryPlanEditor data={data} apply={applyCategoryPlan} close={() => setPlanning(false)}/>}
     {editing && <Modal title={editing === 'new' ? 'Add category' : editing.name} close={() => setEditing(null)}><form onSubmit={async event => {
       event.preventDefault();const form = new FormData(event.currentTarget);setBusy(true);setError('');
       try {
@@ -63,3 +67,4 @@ export function Budget({ data, month, save, navigate, canWrite }: { data: Snapsh
     </form></Modal>}
   </>;
 }
+
