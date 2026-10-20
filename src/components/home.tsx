@@ -10,7 +10,7 @@ import { suggestions, TaskRow } from './tasks';
 import { Empty } from './ui';
 import { WeeklyTips } from './weekly-tips';
 import { PurchaseEditor,blankPurchase } from './purchase-editor';
-import { countsInBudget } from '@/lib/reconciliation';
+import { countsInBudget, needsImportReview } from '@/lib/reconciliation';
 import type { Transaction } from '@/lib/types';
 import { snapDisplay } from '@/lib/snap/display';
 
@@ -32,7 +32,7 @@ export function Home({ data, role, month, navigate, save, onError, preferences, 
   const tasks = [...data.tasks, ...suggestions(data)].filter(task => ['Active', 'Suggested'].includes(task.status)).sort((a, b) => Number(b.priority === 'High') - Number(a.priority === 'High')).slice(0, 3);
   const events = data.events.filter(event => event.date && event.date >= today()).sort((a, b) => a.date!.localeCompare(b.date!)).slice(0, 4);
   const transactions = data.transactions.filter(transaction => countsInBudget(transaction) && transaction.date.startsWith(month.slice(0, 7))).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
-  const review = data.transactions.filter(transaction => transaction.source !== 'manual' && !transaction.removed && transaction.date.startsWith(month.slice(0, 7)) && (transaction.needs_review || transaction.budget_state === 'held' || transaction.budget_state === 'unbudgeted')).length;
+  const review = data.transactions.filter(transaction => transaction.date.startsWith(month.slice(0, 7)) && needsImportReview(transaction)).length;
   const snap = snapDisplay(data.snap_balances, data.snap_public_observations);
   const latestReview=[...(data.reviews??[])].sort((a,b)=>b.period_end.localeCompare(a.period_end)||b.revision-a.revision||b.saved_at.localeCompare(a.saved_at))[0];
   const openButton = (label: string, tab: string) => <button className="icon-btn" title={label} aria-label={label} onClick={() => navigate(tab)}><ArrowUpRight size={18}/></button>;

@@ -4,6 +4,11 @@ export function countsInBudget(t: Transaction) {
   return !t.removed && !t.excluded && t.kind === 'expense' && t.currency === 'USD' &&
     !t.matched_manual_id && (t.budget_state === undefined || t.budget_state === 'budgeted');
 }
+export function needsImportReview(t: Transaction) {
+  if (t.source === 'manual' || t.removed || t.excluded) return false;
+  if (t.matched_manual_id) return t.needs_review;
+  return t.needs_review || (t.kind === 'expense' && (t.budget_state === 'held' || t.budget_state === 'unbudgeted'));
+}
 export function merchantWords(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().split(/\s+/).filter(word => word.length >= 4 && !['purchase','store','debit','card','payment'].includes(word));
 }
@@ -30,7 +35,7 @@ export function savePreviewPurchase(data:Snapshot,purchase:Transaction,remember=
     saved.user_modified=false;
   }
   saved.budget_state=saved.category_id||saved.splits.length?'budgeted':'unbudgeted';
-  saved.needs_review=saved.source!=='manual'&&saved.kind==='expense'&&saved.budget_state==='unbudgeted';
+  saved.needs_review=saved.source!=='manual'&&!saved.excluded&&saved.kind==='expense'&&saved.budget_state==='unbudgeted';
   if(remember) {
     if(saved.kind!=='expense'||!saved.category_id||saved.splits.length)throw new Error('Choose a single purchase category to remember.');
     next.preview_merchant_rules={...next.preview_merchant_rules,[key]:saved.category_id};
@@ -55,7 +60,7 @@ export function reconcilePreview(data: Snapshot,action: string,payload: Record<s
       if (!candidate) throw new Error('Choose an eligible, unmatched manual purchase.');
       next.match_rejections.push({import_id:imported.id,manual_id:candidate.id});
       imported.budget_state=imported.category_id || imported.splits.length ? 'budgeted':'unbudgeted';
-      imported.needs_review=imported.budget_state==='unbudgeted';
+      imported.needs_review=!imported.excluded&&imported.budget_state==='unbudgeted';
     }
   }
   for (const t of next.transactions.filter(t=>t.source!=='manual' && !t.removed)) {
@@ -67,7 +72,7 @@ export function reconcilePreview(data: Snapshot,action: string,payload: Record<s
       if (t.budget_state==='budgeted' || t.budget_state===undefined) {t.budget_state='held';t.needs_review=true;}
     } else if (t.budget_state==='held') {
       t.budget_state=t.category_id || t.splits.length ? 'budgeted':'unbudgeted';
-      t.needs_review=t.budget_state==='unbudgeted';
+      t.needs_review=!t.excluded&&t.budget_state==='unbudgeted';
     }
   }
   return next;

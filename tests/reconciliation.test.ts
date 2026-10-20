@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { Transaction } from '../src/lib/types';
 import { allocations } from '../src/lib/finance';
-import { eligibleMatches, likelyMatches, reconcilePreview, savePreviewPurchase } from '../src/lib/reconciliation';
+import { eligibleMatches, likelyMatches, needsImportReview, reconcilePreview, savePreviewPurchase } from '../src/lib/reconciliation';
 import { defaults } from '../src/lib/defaults';
 const manual: Transaction = {id:'manual',merchant:'The Salvation Army',date:'2026-10-01',amount_cents:1375,category_id:'household',account_id:null,kind:'expense',excluded:false,pending:false,removed:false,note:'Keep this',splits:[],source:'manual',currency:'USD',needs_review:false};
 const bank: Transaction = {...manual,id:'bank',source:'plaid',category_id:null,budget_state:'unbudgeted'};
@@ -47,4 +47,19 @@ test('preview remembers only explicit merchant categories and holds a later dupl
  const ordinary=savePreviewPurchase(data,bank);
  assert.equal(ordinary.transactions[0].budget_state,'unbudgeted');
  assert.equal(ordinary.transactions[0].category_id,null);
+});
+test('review queue excludes resolved and excluded imports while retaining genuine conflicts',()=>{
+ assert.equal(needsImportReview({...bank,needs_review:true}),true);
+ assert.equal(needsImportReview({...bank,excluded:true,needs_review:true}),false);
+ assert.equal(needsImportReview({...bank,category_id:'household',budget_state:'budgeted',needs_review:false}),false);
+ assert.equal(needsImportReview({...bank,category_id:'household',budget_state:'held',needs_review:true}),true);
+ assert.equal(needsImportReview({...bank,budget_state:'matched',matched_manual_id:'manual',needs_review:true}),true);
+ assert.equal(needsImportReview({...bank,source:'manual'}),false);
+});
+test('excluding a preview import clears review without deleting its history',()=>{
+ const data=defaults();data.transactions=[bank];
+ const next=savePreviewPurchase(data,{...bank,excluded:true});
+ assert.equal(next.transactions.length,1);
+ assert.equal(next.transactions[0].needs_review,false);
+ assert.equal(needsImportReview(next.transactions[0]),false);
 });

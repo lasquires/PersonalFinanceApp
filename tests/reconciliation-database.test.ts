@@ -9,11 +9,18 @@ async function database() {
   for(const file of ['001_household.sql','002_household_access.sql','003_merchant_category_rules.sql','004_snap_muse_integration.sql','005_dashboard_preferences.sql']) await db.exec(await readFile(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'));
   await db.exec(`insert into auth.users values('${luke}','luke@example.com'); insert into public.members(id,name,role) values('${luke}','Luke','admin'); insert into public.transactions(id,merchant,date,amount_cents,category_id,source) values('legacy','Legacy store','2026-10-01',500,'gas','plaid');`);
   await db.exec(await readFile(new URL('../supabase/migrations/006_purchase_reconciliation.sql',import.meta.url),'utf8'));
+  await db.exec(`update public.transactions set user_modified=true where id='legacy'`);
+  await db.exec(await readFile(new URL('../supabase/migrations/011_import_review_archive.sql',import.meta.url),'utf8'));
   await db.query(`select set_config('request.jwt.claim.sub',$1,false)`,[luke]);
   return db;
 }
 const purchase=(id:string,source='manual',remember=false)=>({id,source,merchant:'The Salvation Army',date:'2026-10-01',amount_cents:1375,category_id:source==='manual'?'household':null,kind:'expense',excluded:false,note:'Keep',splits:[],remember_category:remember});
 async function action(db:PGlite,name:string,value:unknown){await db.query(`select public.household_action($1,$2,'member')`,[name,JSON.stringify(value)]);}
+test('migration clears stale review flags on old, manually categorized imports',async()=>{
+ const db=await database();try{
+  assert.deepEqual((await db.query(`select category_id,needs_review from public.transactions where id='legacy'`)).rows,[{category_id:'gas',needs_review:false}]);
+ }finally{await db.close();}
+});
 test('database preserves history and holds remembered imports for manual duplicates, with reversible matching',async()=>{
   const db=await database();try{
     await db.exec('set role authenticated');
@@ -103,5 +110,37 @@ test('pending replacement carries a confirmed match and flags changed amount wit
   assert.equal(Number((await db.query<{total:number}>(`select sum(amount_cents) total from public.assistant_spending where id<>'legacy'`)).rows[0].total),1375);
   await action(db,'transaction',purchase('another','csv'));
   await assert.rejects(action(db,'match_import',{import_id:'another',manual_id:'manual'}),/eligible unmatched/);
+ }finally{await db.close();}
+});
+test('a reviewed bank import stays reviewed across sync and returns only for a changed amount',async()=>{
+ const db=await database();try{
+  const accounts=[{account_id:'checking',name:'Checking',mask:'1234',type:'depository',balances:{current:1000}}];
+  await db.query(`select public.server_save_item($1,$2,$3,$4,$5)`,['item','test-only-token','Example Bank','Luke',JSON.stringify(accounts)]);
+  const bankRow={id:'reviewed',account_id:'checking',merchant:'The Salvation Army',date:'2026-10-01',amount_cents:1375,category_id:null,kind:'expense',pending:false,pending_transaction_id:null,currency:'USD',needs_review:true};
+  const sync=async(cursor:string,next:string,rows:unknown[])=>db.query(`select public.server_apply_sync($1,$2,$3,$4,$5,$6,$7)`,['item',cursor,next,JSON.stringify(rows),'[]','[]',JSON.stringify(accounts)]);
+  await sync('','one',[bankRow]);
+  await db.exec('set role authenticated');
+  await action(db,'transaction',{...purchase('reviewed','plaid'),category_id:'household'});
+  await db.exec('reset role');
+  await sync('one','two',[bankRow]);
+  assert.deepEqual((await db.query(`select category_id,budget_state,needs_review from public.transactions where id='reviewed'`)).rows,[{category_id:'household',budget_state:'budgeted',needs_review:false}]);
+  await sync('two','three',[{...bankRow,amount_cents:1400}]);
+  assert.equal((await db.query<{needs_review:boolean}>(`select needs_review from public.transactions where id='reviewed'`)).rows[0].needs_review,true);
+  await db.exec('set role authenticated');
+  await action(db,'transaction',{...purchase('reviewed','plaid'),category_id:null,excluded:true,amount_cents:1400});
+  await db.exec('reset role');
+  await sync('three','four',[{...bankRow,amount_cents:1400}]);
+  assert.deepEqual((await db.query(`select excluded,needs_review from public.transactions where id='reviewed'`)).rows,[{excluded:true,needs_review:false}]);
+ }finally{await db.close();}
+});
+test('a matched import returns to review when its manual purchase amount changes',async()=>{
+ const db=await database();try{
+  await db.exec('set role authenticated');
+  await action(db,'transaction',purchase('manual'));
+  await action(db,'transaction',purchase('import','csv'));
+  await action(db,'match_import',{import_id:'import',manual_id:'manual'});
+  assert.equal((await db.query<{needs_review:boolean}>(`select needs_review from public.transactions where id='import'`)).rows[0].needs_review,false);
+  await action(db,'transaction',{...purchase('manual'),amount_cents:1400});
+  assert.equal((await db.query<{needs_review:boolean}>(`select needs_review from public.transactions where id='import'`)).rows[0].needs_review,true);
  }finally{await db.close();}
 });

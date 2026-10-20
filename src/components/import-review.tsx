@@ -7,7 +7,7 @@ import type { Snapshot,Transaction } from '@/lib/types';
 import type { Save } from './budget';
 import { Empty,FormError,Modal } from './ui';
 
-export function ImportReview({data,rows,save,onEdit,canWrite}:{data:Snapshot;rows:Transaction[];save:Save;onEdit:(t:Transaction)=>void;canWrite:boolean}){
+export function ImportReview({data,rows,save,onEdit,canWrite,emptyTitle='No bank imports in this view'}:{data:Snapshot;rows:Transaction[];save:Save;onEdit:(t:Transaction)=>void;canWrite:boolean;emptyTitle?:string}){
  const [matching,setMatching]=useState<Transaction|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const current=matching?data.transactions.find(t=>t.id===matching.id):undefined;
  const candidates=current?eligibleMatches(current,data.transactions,data.match_rejections):[];
@@ -23,9 +23,9 @@ export function ImportReview({data,rows,save,onEdit,canWrite}:{data:Snapshot;row
    <div className="import-status"><span className={t.matched_manual_id?'positive':likely.length?'amber-text':'muted'}>{t.matched_manual_id&&<Check size={14}/>} {status}</span><span>{budget}</span></div>
    {linked&&<button className="matched-purchase" onClick={()=>onEdit(linked)}><Link2 size={14}/>{linked.merchant} · {linked.date} · {money(linked.amount_cents,true)}</button>}
    {t.matched_manual_id&&t.needs_review&&<p className="form-error">Needs attention: the bank amount or currency differs from your recorded purchase.</p>}
-   {canWrite&&<div className="import-actions">{t.matched_manual_id?<button className="text-btn" disabled={busy} onClick={()=>act('unmatch_import',t)}><Undo2 size={15}/>Undo match</button>:<><button className="text-btn" disabled={busy||!isPurchase} onClick={()=>{setMatching(t);setError('');}}><Link2 size={15}/>Match existing purchase</button><button className="text-btn" disabled={busy} onClick={()=>onEdit(t)}><Plus size={15}/>{budget==='In budget'?'Edit category':'Add to budget'}</button>{likely.length===1&&<button className="text-btn" disabled={busy} onClick={()=>act('separate_import',t,likely[0].id)}>Different purchase</button>}</>}</div>}
+   {canWrite&&<div className="import-actions">{t.matched_manual_id?<button className="text-btn" disabled={busy} onClick={()=>act('unmatch_import',t)}><Undo2 size={15}/>Undo match</button>:<><button className="text-btn" disabled={busy||!isPurchase} onClick={()=>{setMatching(t);setError('');}}><Link2 size={15}/>Match existing purchase</button><button className="text-btn" disabled={busy} onClick={()=>onEdit(t)}><Plus size={15}/>{t.category_id||t.splits.length?'Review category':'Add to budget'}</button>{likely.length===1&&<button className="text-btn" disabled={busy} onClick={()=>act('separate_import',t,likely[0].id)}>Different purchase</button>}</>}</div>}
   </article>;
- })}</div>{!rows.length&&<Empty title="No bank imports in this view"/>}
+ })}</div>{!rows.length&&<Empty title={emptyTitle}/>}
  {matching&&<Modal title="Match existing purchase" sheet close={()=>{if(!busy)setMatching(null);}}><div className="matching-list">{candidates.map(t=><div key={t.id}><button className="matching-option" disabled={busy} onClick={()=>act('match_import',current!,t.id)}><span className="grow"><strong>{t.merchant}</strong><small>{t.date} · {t.splits.length?'Split purchase':data.categories.find(c=>c.id===t.category_id)?.name}</small></span><strong>{money(t.amount_cents,true)}</strong><Link2 size={16}/></button><button className="text-btn" disabled={busy} onClick={()=>act('separate_import',current!,t.id)}>Different purchase</button></div>)}</div>{!candidates.length&&<Empty title="No eligible manual purchases"/>}<FormError error={error}/></Modal>}
  </>;
 }
