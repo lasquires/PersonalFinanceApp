@@ -4,6 +4,11 @@ export function countsInBudget(t: Transaction) {
   return !t.removed && !t.excluded && t.kind === 'expense' && t.currency === 'USD' &&
     !t.matched_manual_id && (t.budget_state === undefined || t.budget_state === 'budgeted');
 }
+export function showsInPurchases(t: Transaction, categoryId: string) {
+  return t.source === 'manual' || countsInBudget(t) ||
+    (categoryId !== 'all' && categoryId !== 'pending' && categoryId !== 'transfers' &&
+      (t.category_id === categoryId || t.splits.some(split => split.category_id === categoryId)));
+}
 export function needsImportReview(t: Transaction) {
   if (t.source === 'manual' || t.removed || t.excluded) return false;
   if (t.matched_manual_id) return t.needs_review;

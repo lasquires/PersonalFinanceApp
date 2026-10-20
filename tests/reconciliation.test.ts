@@ -2,10 +2,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { Transaction } from '../src/lib/types';
 import { allocations } from '../src/lib/finance';
-import { eligibleMatches, likelyMatches, needsImportReview, reconcilePreview, savePreviewPurchase } from '../src/lib/reconciliation';
+import { eligibleMatches, likelyMatches, needsImportReview, reconcilePreview, savePreviewPurchase, showsInPurchases } from '../src/lib/reconciliation';
 import { defaults } from '../src/lib/defaults';
 const manual: Transaction = {id:'manual',merchant:'The Salvation Army',date:'2026-10-01',amount_cents:1375,category_id:'household',account_id:null,kind:'expense',excluded:false,pending:false,removed:false,note:'Keep this',splits:[],source:'manual',currency:'USD',needs_review:false};
 const bank: Transaction = {...manual,id:'bank',source:'plaid',category_id:null,budget_state:'unbudgeted'};
+
+test('category activity includes classified bank income without counting it as a purchase', () => {
+  const deposit={...bank,id:'deposit',merchant:'Check Deposit (Mobile)',amount_cents:-12500,kind:'income' as const,category_id:'household'};
+  assert.equal(showsInPurchases(deposit,'all'),false);
+  assert.equal(showsInPurchases(deposit,'household'),true);
+  assert.equal(showsInPurchases(deposit,'gas'),false);
+  assert.equal(allocations(deposit).length,0);
+  assert.equal(showsInPurchases({...bank,category_id:'household',budget_state:'held'},'household'),true);
+  assert.equal(showsInPurchases({...bank,category_id:null},'household'),false);
+});
 
 test('held and matched imports never duplicate manual budget allocations', () => {
   assert.deepEqual(allocations({...bank,category_id:'household',budget_state:'held'}),[]);
