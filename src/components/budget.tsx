@@ -1,12 +1,15 @@
 'use client';
 import { useState } from 'react';
-import { ArrowUpRight, ClipboardPaste, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, ArrowUpRight, ClipboardPaste, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { budgetRows, cents, money } from '@/lib/finance';
+import { sortBudgetRows, type BudgetSortDirection, type BudgetSortKey } from '@/lib/budget-sort';
 import type { BudgetRow, Category, Snapshot } from '@/lib/types';
 import { Field, FormError, Modal, Submit } from './ui';
 import { CategoryPlanEditor } from './category-plan-editor';
 import type { CategoryPlan } from '@/lib/category-plan';
 export type Save = (action: string, payload: Record<string, unknown>) => Promise<void>;
+type SortChoice = { key: BudgetSortKey; direction: BudgetSortDirection };
+const defaultSort: SortChoice = { key: 'name', direction: 'asc' };
 
 export function CategoryBar({ row, onClick, onAdd }: { row: BudgetRow; onClick?: () => void; onAdd?:()=>void }) {
   const available = row.budget + row.carried;
@@ -24,14 +27,25 @@ export function Budget({ data, month, save, navigate, canWrite, applyCategoryPla
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [planning, setPlanning] = useState(false);
+  const [sorts, setSorts] = useState<Record<Category['group'], SortChoice>>({ flexible: defaultSort, fixed: defaultSort, business: defaultSort });
   const rows = budgetRows(data, month);
   const flexible = rows.filter(category => category.group === 'flexible');
+  const toggleSort = (group: Category['group'], key: BudgetSortKey) => setSorts(current => ({ ...current, [group]: {
+    key,
+    direction: current[group].key === key ? (current[group].direction === 'asc' ? 'desc' : 'asc') : (key === 'name' ? 'asc' : 'desc'),
+  } }));
   return <>
     <div className="section-heading"><div><h2>This month's budget</h2><p className="muted">{money(flexible.reduce((total, category) => total + category.remaining, 0))} available for everyday spending</p></div>{canWrite&&<div className="category-plan-actions"><button className="secondary" onClick={() => setPlanning(true)}><ClipboardPaste size={16}/>ChatGPT plan</button><button className="secondary" onClick={() => {setEditing('new');setError('');}}><Plus size={16}/>Category</button></div>}</div>
     {(['flexible','fixed','business'] as const).map(group => <section className="budget-section" key={group}>
       <div className="section-heading"><h3>{group === 'flexible' ? 'Everyday spending' : group === 'fixed' ? 'Fixed & recurring' : 'Rova / business'}</h3><span className="muted small">{money(rows.filter(row => row.group === group).reduce((total, row) => total + row.budget, 0))} / month</span></div>
-      <div className="budget-table"><div className="budget-table-head"><span>Category</span><span>Budget</span><span>Spent</span><span>Remaining</span><span/></div>
-        {rows.filter(row => row.group === group).map(row => <div className="budget-row-container" key={row.id}>
+      <div className="budget-table"><div className="budget-table-head">{(['name','budget','spent','remaining'] as const).map(key => {
+        const label = key === 'name' ? 'Category' : key[0].toUpperCase() + key.slice(1);
+        const active = sorts[group].key === key;
+        const nextDirection = active ? (sorts[group].direction === 'asc' ? 'desc' : 'asc') : (key === 'name' ? 'asc' : 'desc');
+        const sortLabel = `Sort ${label} ${key === 'name' ? (nextDirection === 'asc' ? 'A to Z' : 'Z to A') : (nextDirection === 'asc' ? 'low to high' : 'high to low')}`;
+        return <button key={key} type="button" className={`budget-sort-button${active ? ' active' : ''}`} aria-label={sortLabel} title={sortLabel} onClick={() => toggleSort(group, key)}>{label}{active ? sorts[group].direction === 'asc' ? <ArrowUp size={11}/> : <ArrowDown size={11}/> : <ArrowUpDown size={11}/>}</button>;
+      })}<span/></div>
+        {sortBudgetRows(rows.filter(row => row.group === group), sorts[group].key, sorts[group].direction).map(row => <div className="budget-row-container" key={row.id}>
           <button className="budget-table-row" aria-label={`View ${row.name} purchases`} onClick={() => navigate('Transactions', row.id)}><span className="category-name"><i style={{background:row.color}}/><span>{row.name}{row.rollover && <small className="muted">{money(row.carried)} rolled forward</small>}</span></span><span>{money(row.budget)}</span><span>{money(row.spent)}</span><strong className={row.remaining < 0 ? 'negative' : ''}>{money(row.remaining)}</strong></button>
           {canWrite&&<button className="icon-btn" title={`Edit ${row.name} category`} aria-label={`Edit ${row.name} category`} onClick={() => {setEditing(row);setError('');}}><Pencil size={15}/></button>}
         </div>)}
@@ -67,4 +81,3 @@ export function Budget({ data, month, save, navigate, canWrite, applyCategoryPla
     </form></Modal>}
   </>;
 }
-

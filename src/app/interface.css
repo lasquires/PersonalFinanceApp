@@ -130,6 +130,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .date-tile { background: #f8f9fb; border: 0; }
 .budget-section { border-top: 1px solid var(--border); padding-top: 22px; margin-top: 25px; }
 .budget-table-head { grid-template-columns: minmax(0,1fr) 86px 86px 96px 36px; gap: 12px; padding: 8px 0; font-size: 11px; }
+.budget-sort-button { display: inline-flex; align-items: center; gap: 3px; min-width: 0; padding: 4px 0; border: 0; background: transparent; color: inherit; font-size: inherit; font-weight: 600; white-space: nowrap; }
+.budget-sort-button:not(:first-child) { justify-content: flex-end; }
+.budget-sort-button svg { flex: 0 0 auto; opacity: .55; }
+.budget-sort-button.active { color: var(--text); }
+.budget-sort-button.active svg { opacity: 1; }
+.budget-sort-button:hover { color: var(--text); }
 .budget-row-container { display: flex; align-items: center; border-bottom: 1px solid var(--border); }
 .budget-table-row { display: grid; grid-template-columns: minmax(0,1fr) 86px 86px 96px; gap: 12px; min-width: 0; flex: 1; padding: 16px 0; border: 0; font-size: 13px; }
 .budget-table-row:hover { background: #f8f9fb; }
@@ -258,6 +264,8 @@ dialog { padding: 23px; max-width: 580px; border-radius: 8px; }
   .account-balance small { font-size: 9px; }.account-symbol { width: 31px; height: 34px; }
   .module-amount { font-size: 29px; }.page-footer { flex-wrap: wrap; font-size: 9px; }
   .budget-table-head { grid-template-columns: minmax(0,1fr) 48px 48px 60px 32px; gap: 5px; font-size: 9px; }
+  .budget-sort-button { gap: 1px; }
+  .budget-sort-button svg { width: 9px; height: 9px; }
   .budget-table-row { grid-template-columns: minmax(0,1fr) 48px 48px 60px; gap: 5px; font-size: 10px; }
   .budget-table-row .category-name { font-size: 11px; }.budget-table-row small { font-size: 9px; }
   .budget-row-container > .icon-btn { width: 28px; margin-left: 4px; }.budget-table-head > span:last-child { display: block; }
@@ -270,4 +278,3 @@ dialog { padding: 23px; max-width: 580px; border-radius: 8px; }
   .reorder-controls .icon-btn { width: 32px; }.switch-label { gap: 9px; font-size: 12px; }
   .category-options .check { font-size: 12px; align-items: flex-start; }.category-options .check input { flex-shrink: 0; }
 }
-
