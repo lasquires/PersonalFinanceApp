@@ -7,7 +7,7 @@ import type { MemberRole, Snapshot } from '@/lib/types';
 import { CategoryBar, type Save } from './budget';
 import { DashboardEditor } from './dashboard-editor';
 import { suggestions, TaskRow } from './tasks';
-import { Empty } from './ui';
+import { Empty, FormError, Modal } from './ui';
 import { WeeklyTips } from './weekly-tips';
 import { PurchaseEditor,blankPurchase } from './purchase-editor';
 import { countsInBudget, needsImportReview, needsRemovedReview } from '@/lib/reconciliation';
@@ -21,6 +21,10 @@ export function Home({ data, role, month, navigate, save, onError, preferences, 
 }) {
   const [customizing, setCustomizing] = useState(false);
   const [purchase,setPurchase]=useState<Transaction|null>(null);
+  const [reviewingSnap,setReviewingSnap]=useState(false);
+  const [snapConfirmed,setSnapConfirmed]=useState(false);
+  const [snapBusy,setSnapBusy]=useState(false);
+  const [snapError,setSnapError]=useState('');
   const [categoriesExpanded, setCategoriesExpanded] = useState(false);
   const rows = budgetRows(data, month);
   const visibleCategories = rows.filter(category => preferences.category_ids === null || preferences.category_ids.includes(category.id));
@@ -66,9 +70,9 @@ export function Home({ data, role, month, navigate, save, onError, preferences, 
       case 'snap': return <section className="dashboard-section snap-section" aria-label="SNAP balance">
         <div className="section-heading"><h2><WalletCards size={18}/>SNAP balance</h2>{openButton('Manage SNAP updates', 'Settings')}</div>
         <div className="module-amount">{snap.balance ? money(snap.balance.balance_cents, true) : '--'}</div>
-        {snap.balance ? <><div className="detail-line"><span>Benefit month</span><strong>{monthLabel(snap.balance.benefit_month)}</strong></div><div className="sync-line"><i className={snap.stale ? 'stale' : 'fresh'}/><span>{snap.unverified ? 'Unverified Muse report' : 'Key-protected report'} · {new Date(snap.balance.observed_at).toLocaleString()}</span></div></> : <p className="snap-status">Awaiting the first balance report from Muse.</p>}
+        {snap.balance ? <><div className="detail-line"><span>Benefit month</span><strong>{monthLabel(snap.balance.benefit_month)}</strong></div><div className="sync-line"><i className={snap.stale ? 'stale' : 'fresh'}/><span>{snap.unverified ? 'Unverified Muse report' : 'source' in snap.balance && snap.balance.source==='household' ? 'Confirmed by household' : 'Key-protected report'} · {new Date(snap.balance.observed_at).toLocaleString()}</span></div></> : <p className="snap-status">Awaiting the first balance report from Muse.</p>}
         {snap.stale && snap.balance && <p className="snap-status warning">No recent update. Check your balance before relying on it.</p>}
-        {snap.flagged && <p className="snap-status warning">A newer report was held after an unusual increase. Check the benefits site.</p>}
+        {snap.pending && <div className="snap-refill"><span>Muse reports {money(snap.pending.balance_cents,true)} after a large increase.</span>{role==='admin'&&!preview&&<button className="text-btn" onClick={()=>{setReviewingSnap(true);setSnapConfirmed(false);setSnapError('');}}>Review balance<ChevronRight size={15}/></button>}</div>}
       </section>;
       case 'tasks': return <section className="dashboard-section" aria-label="Tasks">
         <div className="section-heading"><h2><CheckCheck size={18}/>Tasks</h2>{openButton('View all tasks', 'Tasks')}</div>
@@ -98,6 +102,14 @@ export function Home({ data, role, month, navigate, save, onError, preferences, 
     {!preferences.sections.length && <Empty title="Your dashboard is empty" action="Customize dashboard" onAction={() => setCustomizing(true)}/>}
     {customizing && <DashboardEditor data={data} preferences={preferences} save={savePreferences} close={() => setCustomizing(false)} preview={preview}/>}
     {purchase&&<PurchaseEditor transaction={purchase} data={data} save={save} close={()=>setPurchase(null)}/>}
+    {reviewingSnap&&snap.pending&&<Modal title="Confirm SNAP balance" close={()=>{if(!snapBusy)setReviewingSnap(false);}}>
+      <div className="snap-confirm-values"><div><span>Last shown</span><strong>{snap.balance?money(snap.balance.balance_cents,true):'--'}</strong></div><div><span>New Muse report</span><strong>{money(snap.pending.balance_cents,true)}</strong></div></div>
+      <p className="muted">Muse does not use a private key for these updates. Confirm this amount only after checking your benefits account.</p>
+      <form onSubmit={async event=>{event.preventDefault();if(!snap.pending)return;setSnapBusy(true);setSnapError('');try{await save('approve_snap_refill',{benefit_month:snap.pending.benefit_month,balance_cents:snap.pending.balance_cents,observed_at:snap.pending.observed_at});setReviewingSnap(false);}catch(failure){setSnapError((failure as Error).message);}finally{setSnapBusy(false);}}}>
+        <label className="check"><input type="checkbox" checked={snapConfirmed} onChange={event=>setSnapConfirmed(event.target.checked)}/>I checked this balance</label>
+        <FormError error={snapError}/><button className="primary" type="submit" disabled={snapBusy||!snapConfirmed}>{snapBusy?'Confirming...':`Use ${money(snap.pending.balance_cents,true)}`}</button>
+      </form>
+    </Modal>}
   </>;
 }
 

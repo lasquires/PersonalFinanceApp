@@ -13,4 +13,9 @@
 .feed-change-alert{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:44px;margin:12px 0 18px;padding:10px 14px;border:1px solid #e5c991;border-radius:6px;background:#fff9eb;color:#775313;text-align:left;font-weight:650}
 .feed-change-alert:hover{background:#fff2d2}
 .feed-change-alert svg{flex-shrink:0}
+.snap-refill{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 12px;margin-top:12px;padding:10px 12px;border:1px solid #e5c991;border-radius:6px;background:#fff9eb;color:#775313;font-size:12px}
+.snap-confirm-values{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:10px 0 18px}
+.snap-confirm-values>div{display:flex;flex-direction:column;gap:4px;padding:12px;border:1px solid var(--border);border-radius:6px}
+.snap-confirm-values span{font-size:12px;color:var(--muted)}
+.snap-confirm-values strong{font-size:20px}
 

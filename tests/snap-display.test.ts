@@ -19,11 +19,13 @@ test('flagged amount is withheld, and a newer protected report takes precedence'
   const state = snapDisplay([trusted], [accepted, flagged], new Date('2026-10-05T12:00:00Z'));
   assert.equal(state.balance?.balance_cents, 19000);
   assert.equal(state.flagged, true);
+  assert.equal(state.pending?.balance_cents, 90000);
   const laterTrusted = { ...trusted, balance_cents: 18500, observed_at: '2026-10-05T13:00:00Z' };
   const later = snapDisplay([laterTrusted], [accepted, flagged], new Date('2026-10-05T14:00:00Z'));
   assert.equal(later.balance?.balance_cents, 18500);
   assert.equal(later.unverified, false);
   assert.equal(later.flagged, false);
+  assert.equal(later.pending, null);
 });
 
 test('no observations do not imply a successful Muse check', () => {
@@ -31,3 +33,4 @@ test('no observations do not imply a successful Muse check', () => {
   assert.equal(state.balance, null);
   assert.equal(state.stale, true);
 });
+

@@ -78,6 +78,16 @@ export async function readSnapshot(): Promise<Snapshot> {
   return result;
 }
 export async function writeAction(action: string, payload: unknown) {
+  if (action === 'approve_snap_refill') {
+    const value = payload as { benefit_month: string; balance_cents: number; observed_at: string };
+    const { error } = await browserDb().rpc('approve_snap_refill', {
+      month_start: value.benefit_month,
+      expected_amount: value.balance_cents,
+      expected_seen_at: value.observed_at,
+    });
+    if (error) throw new Error(error.code === 'PGRST202' ? 'SNAP deposit confirmation needs a database update.' : error.message);
+    return;
+  }
   if (action === 'resolve_removed_import') {
     const value = payload as { import_id: string; resolution: 'keep'|'dismiss'; category_id?: string|null };
     const { error } = await browserDb().rpc('resolve_removed_import', {
