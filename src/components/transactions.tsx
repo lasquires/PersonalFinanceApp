@@ -16,7 +16,7 @@ export function Transactions({data,save,month,initialFilter='all',initialAccount
  const [view,setView]=useState<'purchases'|'imports'>(['review','removed'].includes(initialFilter)?'imports':'purchases');
  const [importStage,setImportStage]=useState<'review'|'history'|'removed'>(initialFilter==='removed'?'removed':'review');
  const [allTime,setAllTime]=useState(initialFilter==='removed'),[editing,setEditing]=useState<Transaction|null>(null);
- useEffect(()=>{setAllTime(false);},[month]);
+ useEffect(()=>{setAllTime(importStage==='removed');},[month]);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[csv,setCsv]=useState<CsvData|null>(null);
  const [importMap,setImportMap]=useState({date:'',merchant:'',amount:'',sign:'positive',account:''});
  const [importRows,setImportRows]=useState<Record<string,unknown>[]>([]),[limit,setLimit]=useState(100),[progress,setProgress]=useState('');
