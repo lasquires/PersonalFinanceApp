@@ -1,19 +1,24 @@
 'use client';
 import { useState } from 'react';
-import { Check, Link2, Plus, Undo2 } from 'lucide-react';
+import { Check, Flag, Link2, Plus, Undo2 } from 'lucide-react';
 import { money } from '@/lib/finance';
-import { eligibleMatches,likelyMatches } from '@/lib/reconciliation';
+import { eligibleMatches,likelyMatches,needsImportReview } from '@/lib/reconciliation';
 import type { Snapshot,Transaction } from '@/lib/types';
 import type { Save } from './budget';
 import { Empty,FormError,Modal } from './ui';
 
 export function ImportReview({data,rows,save,onEdit,canWrite,stage,emptyTitle='No bank imports in this view'}:{data:Snapshot;rows:Transaction[];save:Save;onEdit:(t:Transaction)=>void;canWrite:boolean;stage:'review'|'history';emptyTitle?:string}){
  const [matching,setMatching]=useState<Transaction|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ const [lastMatched,setLastMatched]=useState<string|null>(null);
+ const undoable=data.transactions.find(t=>t.id===lastMatched&&!t.removed&&t.matched_manual_id);
  const current=matching?data.transactions.find(t=>t.id===matching.id):undefined;
  const candidates=current?eligibleMatches(current,data.transactions,data.match_rejections):[];
- async function act(action:string,imported:Transaction,manualId?:string){setBusy(true);setError('');try{await save(action,{import_id:imported.id,manual_id:manualId});setMatching(null);}catch(failure){setError((failure as Error).message);}finally{setBusy(false);}}
- return <><FormError error={!matching?error:''}/><div className="import-list">{rows.map(t=>{
+ async function act(action:string,imported:Transaction,manualId?:string){setBusy(true);setError('');try{await save(action,{import_id:imported.id,manual_id:manualId});setMatching(null);if(action==='match_import')setLastMatched(imported.id);else if(action==='unmatch_import')setLastMatched(null);}catch(failure){setError((failure as Error).message);}finally{setBusy(false);}}
+ return <><FormError error={!matching?error:''}/>{undoable&&canWrite&&<div className="review-confirmation" role="status"><span>Matched {undoable.merchant}. Your purchase is counted once.</span><button className="text-btn" disabled={busy} onClick={()=>act('unmatch_import',undoable)}><Undo2 size={15}/>Undo match</button></div>}<div className="import-list">{rows.map(t=>{
   const likely=likelyMatches(t,data.transactions,data.match_rejections);
+  const suggestion=likely.length===1?likely[0]:undefined;
+  const attention=needsImportReview(t);
+  const reason=t.matched_manual_id?'Check changed bank amount':likely.length?'Confirm a matching purchase':!t.category_id&&!t.splits.length?'Choose a category':'Check transaction details';
   const linked=data.transactions.find(m=>m.id===t.matched_manual_id);
   const isPurchase=t.kind==='expense'&&!t.excluded&&t.currency==='USD';
   const status=t.matched_manual_id?'Matched':!isPurchase?t.excluded?'Excluded':t.kind==='transfer'?'Transfer':t.kind==='income'?'Income':'Non-USD':likely.length?'Possible match found':'No likely match found';
@@ -21,6 +26,8 @@ export function ImportReview({data,rows,save,onEdit,canWrite,stage,emptyTitle='N
   return <article className="import-item" key={t.id}>
    <div className="import-identity"><span className="merchant-avatar">{t.merchant[0]}</span><div className="grow"><strong>{t.merchant}</strong><small>{t.date} · {data.accounts.find(a=>a.id===t.account_id)?.name??(t.source==='csv'?'CSV import':'Bank import')}{t.pending?' · Pending':''}</small></div><strong>{t.amount_cents<0?'+':''}{t.currency==='USD'?money(Math.abs(t.amount_cents),true):`${Math.abs(t.amount_cents/100).toFixed(2)} ${t.currency}`}</strong></div>
    <div className="import-status"><span className={t.matched_manual_id?'positive':likely.length?'amber-text':'muted'}>{t.matched_manual_id&&<Check size={14}/>} {status}</span><span>{budget}</span></div>
+   {attention&&<p className="review-attention"><Flag size={14}/><span>Needs attention · {reason}</span></p>}
+   {suggestion&&<div className="suggested-purchase"><small>Your recorded purchase</small><strong>{suggestion.merchant} · {money(suggestion.amount_cents,true)}</strong><small>{suggestion.date} · {suggestion.splits.length?'Split purchase':data.categories.find(c=>c.id===suggestion.category_id)?.name??'Purchase'}</small>{suggestion.note&&<p>{suggestion.note}</p>}<small>Confirming keeps your category, splits, and notes.</small>{canWrite&&<button className="primary" disabled={busy} onClick={()=>act('match_import',t,suggestion.id)}><Check size={16}/>Confirm match</button>}</div>}
    {linked&&<button className="matched-purchase" onClick={()=>onEdit(linked)}><Link2 size={14}/>{linked.merchant} · {linked.date} · {money(linked.amount_cents,true)}</button>}
    {t.matched_manual_id&&t.needs_review&&<p className="form-error">Needs attention: the bank amount or currency differs from your recorded purchase.</p>}
    {canWrite&&<div className="import-actions">{t.matched_manual_id?<button className="text-btn" disabled={busy} onClick={()=>act('unmatch_import',t)}><Undo2 size={15}/>Undo match</button>:<><button className="text-btn" disabled={busy||!isPurchase} onClick={()=>{setMatching(t);setError('');}}><Link2 size={15}/>Match existing purchase</button><button className="text-btn" disabled={busy} onClick={()=>onEdit(t)}><Plus size={15}/>{t.excluded?'Edit transaction':t.category_id||t.splits.length?stage==='review'?'Review category':'Edit category':'Add to budget'}</button>{likely.length===1&&<button className="text-btn" disabled={busy} onClick={()=>act('separate_import',t,likely[0].id)}>Different purchase</button>}</>}</div>}

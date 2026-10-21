@@ -83,6 +83,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .import-status > span { display: inline-flex; gap: 4px; align-items: center; }
 .import-status > span:last-child { color: var(--muted); }
 .import-actions { display: flex; flex-wrap: wrap; gap: 6px 22px; padding-top: 6px; }
+.review-attention { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.suggested-purchase { display: grid; gap: 7px; padding: 14px; margin-top: 12px; border: 1px solid currentColor; border-radius: 10px; }
+.suggested-purchase small { color: var(--muted); }
+.suggested-purchase p { margin: 0; overflow-wrap: anywhere; }
+.suggested-purchase .primary { justify-self: start; margin-top: 4px; }
+.review-confirmation { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 12px; margin-bottom: 12px; color: var(--green); }
 .matched-purchase { display: flex; gap: 8px; align-items: center; margin-top: 9px; text-align: left; border: 0; background: transparent; color: var(--green); font-size: 12px; padding: 4px 0; }
 .matching-option { display: flex; align-items: center; width: 100%; border: 0; border-bottom: 1px solid var(--border); background: transparent; padding: 17px 0; text-align: left; gap: 12px; }
 .matching-option strong { font-size: 13px; }
