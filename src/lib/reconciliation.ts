@@ -14,6 +14,9 @@ export function needsImportReview(t: Transaction) {
   if (t.matched_manual_id) return t.needs_review;
   return t.needs_review || (t.kind === 'expense' && (t.budget_state === 'held' || t.budget_state === 'unbudgeted'));
 }
+export function needsRemovedReview(t: Transaction) {
+  return t.source === 'plaid' && t.removed && t.removal_review_state === 'open';
+}
 export function merchantWords(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().split(/\s+/).filter(word => word.length >= 4 && !['purchase','store','debit','card','payment'].includes(word));
 }
@@ -82,3 +85,4 @@ export function reconcilePreview(data: Snapshot,action: string,payload: Record<s
   }
   return next;
 }
+

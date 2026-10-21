@@ -10,7 +10,7 @@ import { suggestions, TaskRow } from './tasks';
 import { Empty } from './ui';
 import { WeeklyTips } from './weekly-tips';
 import { PurchaseEditor,blankPurchase } from './purchase-editor';
-import { countsInBudget, needsImportReview } from '@/lib/reconciliation';
+import { countsInBudget, needsImportReview, needsRemovedReview } from '@/lib/reconciliation';
 import type { Transaction } from '@/lib/types';
 import { snapDisplay } from '@/lib/snap/display';
 
@@ -33,6 +33,7 @@ export function Home({ data, role, month, navigate, save, onError, preferences, 
   const events = data.events.filter(event => event.date && event.date >= today()).sort((a, b) => a.date!.localeCompare(b.date!)).slice(0, 4);
   const transactions = data.transactions.filter(transaction => countsInBudget(transaction) && transaction.date.startsWith(month.slice(0, 7))).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
   const review = data.transactions.filter(transaction => transaction.date.startsWith(month.slice(0, 7)) && needsImportReview(transaction)).length;
+  const feedChanges = data.transactions.filter(needsRemovedReview).length;
   const snap = snapDisplay(data.snap_balances, data.snap_public_observations);
   const latestReview=[...(data.reviews??[])].sort((a,b)=>b.period_end.localeCompare(a.period_end)||b.revision-a.revision||b.saved_at.localeCompare(a.saved_at))[0];
   const openButton = (label: string, tab: string) => <button className="icon-btn" title={label} aria-label={label} onClick={() => navigate(tab)}><ArrowUpRight size={18}/></button>;
@@ -91,6 +92,7 @@ export function Home({ data, role, month, navigate, save, onError, preferences, 
   return <>
     <div className="dashboard-heading"><h1>Overview</h1><button className="icon-btn" title="Customize dashboard" aria-label="Customize dashboard" disabled={preferencesLoading} onClick={() => setCustomizing(true)}><SlidersHorizontal size={20}/></button></div>
     <div className="home-commands">{role!=='viewer'&&<button className="home-command primary" onClick={()=>setPurchase(blankPurchase())}><Plus size={20}/>Add purchase</button>}<button className="home-command secondary" onClick={() => navigate('Transactions', 'review')}><ListChecks size={20}/>Review transactions{review > 0 && <span className="home-review-count" aria-hidden="true">{review}</span>}</button></div>
+    {feedChanges>0&&<button className="feed-change-alert" onClick={()=>navigate('Transactions','removed')}><span>{feedChanges} {feedChanges===1?'purchase needs':'purchases need'} a bank feed check</span><ChevronRight size={18}/></button>}
     {preferencesError && <p className="form-error" role="alert">{preferencesError}</p>}
     <div className="dashboard-grid">{preferences.sections.filter(section => section !== 'tips' || data.tips.some(tip => tip.status === 'active' && (!tip.expires_at || tip.expires_at >= today()))).map(section => <div key={section} className={'dashboard-slot slot-' + section}>{renderSection(section)}</div>)}</div>
     {!preferences.sections.length && <Empty title="Your dashboard is empty" action="Customize dashboard" onAction={() => setCustomizing(true)}/>}
@@ -98,3 +100,4 @@ export function Home({ data, role, month, navigate, save, onError, preferences, 
     {purchase&&<PurchaseEditor transaction={purchase} data={data} save={save} close={()=>setPurchase(null)}/>}
   </>;
 }
+

@@ -9,3 +9,8 @@
 @media(max-width:850px){.tips-list{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 .snap-panel{padding:20px 0;border-top:1px solid var(--border)}.snap-panel .section-heading{margin-bottom:12px}.snap-panel h2{display:flex;align-items:center;gap:9px;font-size:17px}.snap-panel .reservoir-amount{font-size:30px;font-weight:800;margin:10px 0}.snap-key-result{display:flex;align-items:flex-end;gap:12px;max-width:650px}.snap-key-result .field{flex:1;min-width:0}.snap-key-result input{font-family:monospace;font-size:12px}
+/* A compact alert stays visible independently of dashboard section choices. */
+.feed-change-alert{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:44px;margin:12px 0 18px;padding:10px 14px;border:1px solid #e5c991;border-radius:6px;background:#fff9eb;color:#775313;text-align:left;font-weight:650}
+.feed-change-alert:hover{background:#fff2d2}
+.feed-change-alert svg{flex-shrink:0}
+

@@ -78,6 +78,16 @@ export async function readSnapshot(): Promise<Snapshot> {
   return result;
 }
 export async function writeAction(action: string, payload: unknown) {
+  if (action === 'resolve_removed_import') {
+    const value = payload as { import_id: string; resolution: 'keep'|'dismiss'; category_id?: string|null };
+    const { error } = await browserDb().rpc('resolve_removed_import', {
+      import_id: value.import_id,
+      resolution: value.resolution,
+      chosen_category_id: value.category_id ?? null,
+    });
+    if (error) throw new Error(error.code === 'PGRST202' ? 'Feed changes need a database update. Please try again later.' : error.message);
+    return;
+  }
   if (action === "delete_category") {
     const value = payload as { id: string; replacement_id: string | null };
     const { error } = await browserDb().rpc("delete_household_category", {
