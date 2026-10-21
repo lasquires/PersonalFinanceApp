@@ -41,7 +41,6 @@ begin
   values(to_char(month_start,'YYYY-MM') || ':accepted',month_start,amount,seen_at,false)
   on conflict(benefit_month,flagged) do update
     set balance_cents=excluded.balance_cents,observed_at=excluded.observed_at,received_at=now();
-  delete from public.snap_public_observations where id=report.id;
   return 'updated';
 end $$;
 revoke all on function public.server_receive_public_snap(date,bigint,timestamptz,text) from public,anon,authenticated;
@@ -74,7 +73,6 @@ begin
   values(to_char(month_start,'YYYY-MM'),month_start,report.balance_cents,report.observed_at,'household')
   on conflict(benefit_month) do update set balance_cents=excluded.balance_cents,
     observed_at=excluded.observed_at,source='household';
-  delete from public.snap_public_observations where id=report.id;
   insert into public.audit_log(actor,origin,table_name,action,after_data)
   values(auth.uid(),'member','snap_balance_snapshots','APPROVE',
     jsonb_build_object('benefit_month',month_start,'balance_cents',report.balance_cents,'observed_at',report.observed_at));
@@ -100,7 +98,6 @@ do $$ declare report public.snap_public_observations; latest_cents bigint; lates
       values(to_char(report.benefit_month,'YYYY-MM') || ':accepted',report.benefit_month,report.balance_cents,report.observed_at,false)
       on conflict(benefit_month,flagged) do update
         set balance_cents=excluded.balance_cents,observed_at=excluded.observed_at,received_at=now();
-      delete from public.snap_public_observations where id=report.id;
     end if;
   end loop;
 end $$;

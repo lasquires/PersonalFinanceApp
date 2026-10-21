@@ -19,7 +19,7 @@ test('migration accepts the current month held refill under $1000', async () => 
       ('accepted',date_trunc('month',now() at time zone 'America/New_York')::date,7195,now()-interval '2 hours',false),
       ('flagged',date_trunc('month',now() at time zone 'America/New_York')::date,87995,now()-interval '1 hour',true);`);
     await db.exec(await readFile(new URL('../supabase/migrations/013_snap_refill_approval.sql',import.meta.url),'utf8'));
-    assert.deepEqual((await db.query(`select balance_cents,flagged from public.snap_public_observations`)).rows,[{balance_cents:87995,flagged:false}]);
+    assert.deepEqual((await db.query(`select balance_cents,flagged from public.snap_public_observations order by flagged`)).rows,[{balance_cents:87995,flagged:false},{balance_cents:87995,flagged:true}]);
     assert.equal((await db.query<{n:number}>(`select count(*)::int n from public.snap_refill_acceptances`)).rows[0].n,1);
   } finally {await db.close();}
 });
@@ -42,7 +42,7 @@ test('an admin can confirm a held refill once; public and viewer roles cannot', 
     await assert.rejects(db.query(`select public.approve_snap_refill($1,$2,$3)`, ['2026-10-01', 88000, '2026-10-21T20:05:00Z']), /changed/i);
     await db.query(`select public.approve_snap_refill($1,$2,$3)`, ['2026-10-01', 107195, '2026-10-21T20:05:00Z']);
     assert.deepEqual((await db.query(`select balance_cents,source from public.snap_balance_snapshots where id='2026-10'`)).rows,[{balance_cents:107195,source:'household'}]);
-    assert.equal((await db.query<{n:number}>(`select count(*)::int as n from public.snap_public_observations where flagged`)).rows[0].n,0);
+    assert.equal((await db.query<{n:number}>(`select count(*)::int as n from public.snap_public_observations where flagged`)).rows[0].n,1);
     await assert.rejects(db.query(`select public.approve_snap_refill($1,$2,$3)`, ['2026-10-01', 107195, '2026-10-21T20:05:00Z']), /changed/i);
   } finally { await db.close(); }
 });
@@ -52,7 +52,7 @@ test('one under-$1000 benefit refill per month is accepted, then normal spending
   try {
     assert.equal(await receive(db,7195,'2026-10-21T03:34:00Z'),'updated');
     assert.equal(await receive(db,87995,'2026-10-21T20:05:00Z'),'updated');
-    assert.deepEqual((await db.query(`select balance_cents,flagged from public.snap_public_observations`)).rows,[{balance_cents:87995,flagged:false}]);
+    assert.deepEqual((await db.query(`select balance_cents,flagged from public.snap_public_observations order by flagged`)).rows,[{balance_cents:87995,flagged:false},{balance_cents:87995,flagged:true}]);
     assert.equal(await receive(db,85995,'2026-10-21T21:05:00Z'),'updated');
     assert.equal(await receive(db,146995,'2026-10-21T22:05:00Z'),'flagged');
     assert.equal((await db.query<{n:number}>(`select count(*)::int n from public.snap_refill_acceptances where benefit_month='2026-10-01'`)).rows[0].n,1);
