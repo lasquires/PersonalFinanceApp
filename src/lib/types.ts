@@ -1,6 +1,6 @@
 export type Category = { id: string; name: string; group: 'flexible' | 'fixed' | 'business'; monthly_cents: number; rollover: boolean; start_month: string; color: string };
 export type Limit = { category_id: string; month: string; amount_cents: number };
-export type Split = { category_id: string; amount_cents: number };
+export type Split = { category_id: string; amount_cents: number; excluded?: boolean };
 export type Transaction = { id: string; account_id: string | null; merchant: string; date: string; amount_cents: number; category_id: string | null; kind: 'expense' | 'transfer' | 'income'; excluded: boolean; pending: boolean; removed: boolean; note: string; splits: Split[]; source: 'manual' | 'csv' | 'plaid'; pending_transaction_id?: string | null; currency: string; needs_review: boolean; budget_state?: 'unbudgeted'|'budgeted'|'held'|'matched'; matched_manual_id?: string|null; removal_review_state?: 'open'|'recorded'|'dismissed'|null; removal_manual_id?: string|null; user_modified?:boolean };
 export type MatchRejection = { import_id:string; manual_id:string };
 export type Account = { id: string; name: string; institution: string; member: string; mask: string; type: string; balance_cents: number | null; last_synced_at: string | null; sync_error: string | null; item_id: string | null };
