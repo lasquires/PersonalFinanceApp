@@ -43,6 +43,30 @@ test('categorized income credits use signed split amounts but uncategorized inco
   assert.equal(budgetRows(d,'2026-09-01').find(c=>c.id==='gas')!.spent,-3000);
   assert.deepEqual(allocations(d.transactions[1]),[]);
 });
+test('excluding one split preserves the transaction total and only budgets included portions', () => {
+  const d=defaults(); d.categories.forEach(c=>c.start_month='2026-09-01');
+  d.transactions=[
+    tx({id:'buy',amount_cents:10000,category_id:null,splits:[
+      {category_id:'household',amount_cents:6500},
+      {category_id:'gas',amount_cents:3500,excluded:true}
+    ]}),
+    tx({id:'refund',amount_cents:-2000,category_id:null,splits:[
+      {category_id:'household',amount_cents:-1500},
+      {category_id:'gas',amount_cents:-500,excluded:true}
+    ]})
+  ];
+  for(const t of d.transactions)validateSplits(t.amount_cents,t.splits);
+  assert.equal(d.transactions[0].amount_cents,10000);
+  assert.equal(d.transactions[1].amount_cents,-2000);
+  assert.deepEqual(allocations(d.transactions[0]),[{category_id:'household',amount_cents:6500}]);
+  assert.deepEqual(allocations(d.transactions[1]),[{category_id:'household',amount_cents:-1500}]);
+  assert.equal(budgetRows(d,'2026-09-01').find(c=>c.id==='household')!.spent,5000);
+  assert.equal(budgetRows(d,'2026-09-01').find(c=>c.id==='gas')!.spent,0);
+  d.transactions[0].splits[1].excluded=false;
+  assert.equal(budgetRows(d,'2026-09-01').find(c=>c.id==='gas')!.spent,3500);
+  // Old split rows without the optional flag remain fully included.
+  assert.equal(allocations(tx({splits:[{category_id:'gas',amount_cents:2000}]})).length,1);
+});
 test('personal rollover includes overspending; other categories reset', () => { const d = defaults(); d.categories.forEach(c => c.start_month = '2026-08-01'); d.transactions = [tx({ date: '2026-08-12', amount_cents: 6000 }), tx({ id: '2', category_id: 'dates', date: '2026-08-12', amount_cents: 2000 })]; const rows = budgetRows(d, '2026-09-01'); assert.equal(rows.find(c => c.id === 'luke')?.remaining, 4000); assert.equal(rows.find(c => c.id === 'dates')?.remaining, 10000); assert.equal(rows.find(c => c.id === 'samantha')?.remaining, 10000); });
 test('split validation requires exact integer-cent signed totals', () => { assert.throws(() => validateSplits(1000, [{ amount_cents: 500 }, { amount_cents: 501 }])); assert.throws(() => validateSplits(1000, [{ amount_cents: -500 }, { amount_cents: 1500 }])); validateSplits(-1000, [{ amount_cents: -400 }, { amount_cents: -600 }]); });
 test('pending spend is reserved; foreign currency not mistaken for dollars', () => { assert.equal(allocations(tx({ pending: true }))[0].amount_cents, 2000); assert.deepEqual(allocations(tx({ currency: 'CAD' })), []); });
