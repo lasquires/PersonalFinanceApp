@@ -1,7 +1,12 @@
 import type { MatchRejection, Snapshot, Transaction } from './types';
 
 export function countsInBudget(t: Transaction) {
-  return !t.removed && !t.excluded && t.kind === 'expense' && t.currency === 'USD' &&
+  // Categorized incoming credits offset spending even if a bank (or an older
+  // manual entry) classified them as "income". Unassigned income remains income.
+  // Transfers, excluded records, and matched imports never affect the budget.
+  const spendingOrCategorizedCredit = t.kind === 'expense' ||
+    (t.kind === 'income' && t.amount_cents < 0 && (t.category_id !== null || t.splits.length > 0));
+  return !t.removed && !t.excluded && spendingOrCategorizedCredit && t.currency === 'USD' &&
     !t.matched_manual_id && (t.budget_state === undefined || t.budget_state === 'budgeted');
 }
 export function showsInPurchases(t: Transaction, categoryId: string) {
