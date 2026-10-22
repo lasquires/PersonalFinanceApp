@@ -37,6 +37,31 @@ test('phone purchase sheet keeps entry and save reachable',async({page})=>{
 });
 
 
+test('split exclusion checkbox persists when a transaction is edited',async({page})=>{
+ await page.goto('/');await page.getByRole('button',{name:'Open local preview'}).click();
+ await page.getByRole('button',{name:'Add purchase',exact:true}).click();
+ await page.getByLabel('Merchant',{exact:true}).fill('Partly excluded purchase');
+ await page.getByLabel('Amount ($)').fill('100');
+ await page.getByRole('button',{name:'Split transaction',exact:true}).click();
+ await page.getByRole('combobox',{name:'Split 1 category'}).selectOption('household');
+ await page.getByRole('combobox',{name:'Split 2 category'}).selectOption('gas');
+ await page.getByRole('spinbutton',{name:'Split 1 amount'}).fill('65');
+ await page.getByRole('spinbutton',{name:'Split 2 amount'}).fill('35');
+ await page.getByRole('checkbox',{name:'Exclude split 2 from budget'}).check();
+ await page.getByRole('button',{name:'Save changes',exact:true}).click();
+ await expect(page.getByRole('dialog')).toBeHidden();
+ await page.getByRole('button',{name:'Transactions',exact:true}).first().click();
+ const row=page.locator('.transaction-row').filter({hasText:'Partly excluded purchase'});
+ await expect(row).toContainText('$100.00');
+ await row.click();
+ await expect(page.getByRole('checkbox',{name:'Exclude split 1 from budget'})).not.toBeChecked();
+ await expect(page.getByRole('checkbox',{name:'Exclude split 2 from budget'})).toBeChecked();
+ await page.getByRole('checkbox',{name:'Exclude split 2 from budget'}).uncheck();
+ await page.getByRole('button',{name:'Save changes',exact:true}).click();
+ await row.click();
+ await expect(page.getByRole('checkbox',{name:'Exclude split 2 from budget'})).not.toBeChecked();
+});
+ 
 test('split refunds show positive inputs and keep negative totals when reopened',async({page})=>{
  await page.goto('/');await page.getByRole('button',{name:'Open local preview'}).click();
  await page.getByRole('button',{name:'Add purchase',exact:true}).click();
