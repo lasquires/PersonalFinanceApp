@@ -19,7 +19,7 @@ test('desktop preview supports the core household workflow', async ({ page }) =>
   await page.getByRole('button', { name: 'Transactions' }).first().click();
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await page.getByLabel('Merchant', { exact: true }).fill('Target');
-  await page.getByLabel('Amount ($; negative for refund)').fill('42.75');
+  await page.getByLabel('Amount ($)').fill('42.75');
   await page.locator('select[name="category"]').selectOption('household');
   await expect(page.getByLabel('Remember category for future matches')).toBeVisible();
   await page.getByLabel('Remember category for future matches').check();
@@ -42,6 +42,37 @@ test('desktop preview supports the core household workflow', async ({ page }) =>
   await page.getByRole('button', { name: 'Done' }).click();
   await expect(page.getByText('Enter tuition and funding dates')).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+
+test('Spent and Added toggle preserves existing refunds when reopened', async ({ page }) => {
+  await openPreview(page);
+  await page.getByRole('button', { name:'Transactions' }).first().click();
+  await page.getByRole('button', { name:'Add', exact:true }).click();
+  await page.getByLabel('Merchant', { exact:true }).fill('Refund sign regression');
+  await page.getByLabel('Amount ($)').fill('55');
+  await page.locator('select[name="category"]').selectOption('household');
+  await expect(page.getByRole('button', { name:'Spent', exact:true })).toHaveAttribute('aria-pressed','false');
+  await page.getByRole('button', { name:'Spent', exact:true }).click();
+  await expect(page.getByRole('button', { name:'Added', exact:true })).toHaveAttribute('aria-pressed','true');
+  await page.getByRole('button', { name:'Save changes' }).click();
+
+  const refund = page.locator('.transaction-row').filter({ hasText:'Refund sign regression' });
+  await expect(refund).toContainText('+$55.00');
+  await refund.click();
+  await expect(page.getByLabel('Amount ($)')).toHaveValue('55');
+  await expect(page.getByRole('button', { name:'Added', exact:true })).toBeVisible();
+  // Save a preexisting negative amount without changing its sign.
+  await page.getByRole('button', { name:'Save changes' }).click();
+  await expect(refund).toContainText('+$55.00');
+
+  await refund.click();
+  await page.getByRole('button', { name:'Added', exact:true }).click();
+  await page.getByRole('button', { name:'Save changes' }).click();
+  await expect(refund).toContainText('$55.00');
+  await expect(refund).not.toContainText('+$55.00');
+  await refund.click();
+  await expect(page.getByRole('button', { name:'Spent', exact:true })).toBeVisible();
 });
 
 test.describe('phone layout', () => {
@@ -131,7 +162,7 @@ test('home category opens matching transactions', async ({ page }) => {
     await page.getByRole('button', { name:'Add', exact:true }).click();
     await page.getByLabel('Merchant', { exact:true }).fill(transaction.merchant);
     await page.getByLabel('Date', { exact:true }).fill(transaction.date);
-    await page.getByLabel('Amount ($; negative for refund)').fill('10');
+    await page.getByLabel('Amount ($)').fill('10');
     await page.locator('select[name="category"]').selectOption('household');
     await page.getByRole('button', { name:'Save changes' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
