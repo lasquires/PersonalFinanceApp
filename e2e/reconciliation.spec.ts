@@ -6,12 +6,12 @@ test('Home purchase shortcuts select categories and allow correcting a backdated
  await page.getByRole('button',{name:'Add Gas purchase',exact:true}).click();
  await expect(page.getByRole('combobox',{name:'Category',exact:true})).toHaveValue('gas');
  await page.getByLabel('Merchant',{exact:true}).fill('Fuel stop');
- await page.getByLabel('Amount ($; negative for refund)').fill('32');
+ await page.getByLabel('Amount ($)').fill('32');
  await page.getByRole('button',{name:'Save changes',exact:true}).click();
  await expect(page.getByRole('dialog')).toBeHidden();
  await page.getByRole('button',{name:'View Gas purchases',exact:true}).click();
  await page.getByRole('button',{name:/Fuel stop.*\$32\.00/}).click();
- await page.getByLabel('Amount ($; negative for refund)').fill('33');
+ await page.getByLabel('Amount ($)').fill('33');
  await page.getByLabel('Date',{exact:true}).fill('2026-03-01');
  await page.getByRole('button',{name:'Save changes',exact:true}).click();
  await expect(page.getByRole('button',{name:/Fuel stop.*\$33\.00/})).toBeHidden();
@@ -28,12 +28,38 @@ test('phone purchase sheet keeps entry and save reachable',async({page})=>{
  await expect(page.getByRole('dialog')).toHaveClass(/purchase-sheet/);
  await page.screenshot({path:'test-results/purchase-sheet-phone.png'});
  await page.getByLabel('Merchant',{exact:true}).fill('A long merchant name for a household purchase');
- await page.getByLabel('Amount ($; negative for refund)').fill('13.75');
+ await page.getByLabel('Amount ($)').fill('13.75');
  await page.getByRole('combobox',{name:'Category',exact:true}).selectOption('household');
  await page.setViewportSize({width:390,height:500});
  await expect.poll(()=>page.getByRole('dialog').evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);
  await page.getByRole('button',{name:'Save changes',exact:true}).click();
  await expect(page.getByRole('dialog')).toBeHidden();
+});
+
+
+test('split refunds show positive inputs and keep negative totals when reopened',async({page})=>{
+ await page.goto('/');await page.getByRole('button',{name:'Open local preview'}).click();
+ await page.getByRole('button',{name:'Add purchase',exact:true}).click();
+ await page.getByLabel('Merchant',{exact:true}).fill('Split refund regression');
+ await page.getByLabel('Amount ($)').fill('55');
+ await page.getByRole('button',{name:'Spent',exact:true}).click();
+ await page.getByRole('button',{name:'Split transaction',exact:true}).click();
+ await page.getByRole('combobox',{name:'Split 1 category'}).selectOption('household');
+ await page.getByRole('combobox',{name:'Split 2 category'}).selectOption('gas');
+ await page.getByRole('spinbutton',{name:'Split 1 amount'}).fill('25');
+ await page.getByRole('spinbutton',{name:'Split 2 amount'}).fill('30');
+ await page.getByRole('button',{name:'Save changes',exact:true}).click();
+ await expect(page.getByRole('dialog')).toBeHidden();
+ await page.getByRole('button',{name:'Transactions',exact:true}).first().click();
+ const row=page.locator('.transaction-row').filter({hasText:'Split refund regression'});
+ await expect(row).toContainText('+$55.00');
+ await row.click();
+ await expect(page.getByRole('button',{name:'Added',exact:true})).toBeVisible();
+ await expect(page.getByLabel('Amount ($)')).toHaveValue('55');
+ await expect(page.getByRole('spinbutton',{name:'Split 1 amount'})).toHaveValue('25');
+ await expect(page.getByRole('spinbutton',{name:'Split 2 amount'})).toHaveValue('30');
+ await page.getByRole('button',{name:'Save changes',exact:true}).click();
+ await expect(row).toContainText('+$55.00');
 });
 
 for(const manualFirst of [true,false])test(`bank matching counts once when manual entry is ${manualFirst?'first':'later'}`,async({page})=>{
@@ -42,7 +68,7 @@ for(const manualFirst of [true,false])test(`bank matching counts once when manua
   await page.getByRole('button',{name:'Home',exact:true}).first().click();
   await page.getByRole('button',{name:'Add Household & Kids purchase',exact:true}).click();
   await page.getByLabel('Merchant',{exact:true}).fill('The Salvation Army');
-  await page.getByLabel('Amount ($; negative for refund)').fill('13.75');
+  await page.getByLabel('Amount ($)').fill('13.75');
   await page.getByRole('button',{name:'Save changes',exact:true}).click();
   await expect(page.getByRole('dialog')).toBeHidden();
  };
