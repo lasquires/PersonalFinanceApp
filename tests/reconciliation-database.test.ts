@@ -11,11 +11,40 @@ async function database() {
   await db.exec(await readFile(new URL('../supabase/migrations/006_purchase_reconciliation.sql',import.meta.url),'utf8'));
   await db.exec(`update public.transactions set user_modified=true where id='legacy'`);
   await db.exec(await readFile(new URL('../supabase/migrations/011_import_review_archive.sql',import.meta.url),'utf8'));
+  await db.exec(await readFile(new URL('../supabase/migrations/013_partial_split_exclusions.sql',import.meta.url),'utf8'));
   await db.query(`select set_config('request.jwt.claim.sub',$1,false)`,[luke]);
   return db;
 }
 const purchase=(id:string,source='manual',remember=false)=>({id,source,merchant:'The Salvation Army',date:'2026-10-01',amount_cents:1375,category_id:source==='manual'?'household':null,kind:'expense',excluded:false,note:'Keep',splits:[],remember_category:remember});
 async function action(db:PGlite,name:string,value:unknown){await db.query(`select public.household_action($1,$2,'member')`,[name,JSON.stringify(value)]);}
+test('partial split exclusions persist in the ledger and assistant spending',async()=>{
+ const db=await database();try{
+  await db.exec('set role authenticated');
+  const payload={...purchase('partial'),amount_cents:10000,category_id:null,splits:[
+    {category_id:'household',amount_cents:6500},
+    {category_id:'gas',amount_cents:3500,excluded:true}
+  ]};
+  await action(db,'transaction',payload);
+  const saved=await db.query<{amount_cents:number;splits:Array<{category_id:string;amount_cents:number;excluded?:boolean}>}>(
+    `select amount_cents,splits from public.transactions where id='partial'`
+  );
+  assert.equal(Number(saved.rows[0].amount_cents),10000);
+  assert.deepEqual(saved.rows[0].splits,payload.splits);
+  const visible=await db.query<{category_id:string;amount_cents:number}>(
+    `select category_id,amount_cents from public.assistant_spending where id='partial'`
+  );
+  assert.deepEqual(visible.rows.map(row=>({category_id:row.category_id,amount_cents:Number(row.amount_cents)})),
+    [{category_id:'household',amount_cents:6500}]);
+
+  await action(db,'transaction',{...payload,splits:[
+    {category_id:'household',amount_cents:6500},
+    {category_id:'gas',amount_cents:3500,excluded:false}
+  ]});
+  const restored=await db.query<{total:number}>(`select sum(amount_cents) total from public.assistant_spending where id='partial'`);
+  assert.equal(Number(restored.rows[0].total),10000);
+ }finally{await db.close();}
+});
+
 test('migration clears stale review flags on old, manually categorized imports',async()=>{
  const db=await database();try{
   assert.deepEqual((await db.query(`select category_id,needs_review from public.transactions where id='legacy'`)).rows,[{category_id:'gas',needs_review:false}]);
