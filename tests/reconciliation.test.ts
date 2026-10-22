@@ -12,7 +12,11 @@ test('category activity includes classified bank income without counting it as a
   assert.equal(showsInPurchases(deposit,'all'),false);
   assert.equal(showsInPurchases(deposit,'household'),true);
   assert.equal(showsInPurchases(deposit,'gas'),false);
-  assert.equal(allocations(deposit).length,0);
+  assert.equal(allocations(deposit).length,0); // Unbudgeted deposit stays income.
+  assert.equal(allocations({...deposit,budget_state:'budgeted'})[0].amount_cents,-12500);
+  assert.equal(showsInPurchases({...deposit,budget_state:'budgeted'},'all'),true);
+  assert.equal(allocations({...deposit,budget_state:'budgeted',category_id:null}).length,0);
+  assert.equal(allocations({...deposit,budget_state:'budgeted',excluded:true}).length,0);
   assert.equal(showsInPurchases({...bank,category_id:'household',budget_state:'held'},'household'),true);
   assert.equal(showsInPurchases({...bank,category_id:null},'household'),false);
 });
