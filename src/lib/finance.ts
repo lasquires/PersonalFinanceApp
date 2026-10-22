@@ -11,7 +11,7 @@ export const limitFor = (c: Category, month: string, limits: Limit[]) => limits.
 export const sortedCategories = <T extends Category>(categories: T[]): T[] => [...categories].sort((a, b) => a.name.localeCompare(b.name, 'en-US', { sensitivity: 'base' }) || a.id.localeCompare(b.id));
 export function allocations(t: Transaction) {
   if (!countsInBudget(t)) return [];
-  return t.splits.length ? t.splits : [{ category_id: t.category_id ?? 'uncategorized', amount_cents: t.amount_cents }];
+  return t.splits.length ? t.splits.filter(split => split.excluded !== true) : [{ category_id: t.category_id ?? 'uncategorized', amount_cents: t.amount_cents }];
 }
 export function budgetRows(data: Snapshot, month: string): BudgetRow[] {
   const spending = new Map<string, number>(); const pending = new Map<string, number>();
